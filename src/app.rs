@@ -1,6 +1,7 @@
 use std::{io::Read, sync::mpsc::TryRecvError};
 
-use egui::{Label, Pos2, Rect, Window};
+use egui::{Color32, Label, Pos2, Rect, Ui, Window};
+use egui_plot::{Legend, Line, Plot};
 use scraper::{Html, Selector};
 
 pub struct MeteoApp {
@@ -17,6 +18,10 @@ struct Report {
     url: String,
     selected: bool,
     status: DownloadingStatus,
+    original: Option<String>,
+    report: Option<meteo::Report>,
+    error: Option<Error>,
+    displaying: DisplayingReport,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -33,6 +38,95 @@ enum Error {
     Other(#[from] anyhow::Error),
 }
 
+impl Report {
+    pub fn ui(&mut self, ctx: &egui::Context) {
+        if self.selected {
+            Window::new(&self.name).show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.selectable_value(
+                        &mut self.displaying.mode,
+                        DisplayMode::Temperature,
+                        "temperatures",
+                    );
+                    ui.selectable_value(&mut self.displaying.mode, DisplayMode::Rain, "rain");
+                    ui.selectable_value(&mut self.displaying.mode, DisplayMode::Raw, "Raw");
+                });
+                ui.separator();
+
+                match self.displaying.mode {
+                    DisplayMode::Temperature => self.temperature(ui),
+                    DisplayMode::Rain => self.rain(ui),
+                    DisplayMode::Raw => self.raw(ui),
+                }
+            });
+        }
+    }
+
+    pub fn temperature(&mut self, ui: &mut Ui) {
+        if let Some(ref report) = self.report {
+            let plot = Plot::new("Temperature").legend(Legend::default());
+            plot.show(ui, |ui| {
+                // gather all data
+                let low_temp: Vec<_> = report
+                    .days
+                    .iter()
+                    .map(|day| [day.date.day() as f64, day.low_temp as f64])
+                    .collect();
+                let mean_temp: Vec<_> = report
+                    .days
+                    .iter()
+                    .map(|day| [day.date.day() as f64, day.mean_temp as f64])
+                    .collect();
+                let high_temp: Vec<_> = report
+                    .days
+                    .iter()
+                    .map(|day| [day.date.day() as f64, day.high_temp as f64])
+                    .collect();
+
+                // display all data
+                ui.line(
+                    Line::new(low_temp)
+                        .color(Color32::LIGHT_BLUE)
+                        .name("temperature minimale"),
+                );
+                ui.line(
+                    Line::new(mean_temp)
+                        .color(Color32::GREEN)
+                        .name("temperature moyenne"),
+                );
+                ui.line(
+                    Line::new(high_temp)
+                        .color(Color32::RED)
+                        .name("temperature maximale"),
+                );
+            });
+        }
+    }
+
+    pub fn rain(&mut self, ui: &mut Ui) {
+        if let Some(ref report) = self.report {
+            let plot = Plot::new("Pluie").legend(Legend::default());
+            plot.show(ui, |ui| {
+                // gather all data
+                let rain: Vec<_> = report
+                    .days
+                    .iter()
+                    .map(|day| [day.date.day() as f64, day.rain as f64])
+                    .collect();
+
+                // display all data
+                ui.line(Line::new(rain).color(Color32::LIGHT_BLUE).name("pluie"));
+            });
+        }
+    }
+
+    pub fn raw(&mut self, ui: &mut Ui) {
+        if let Some(ref original) = self.original {
+            ui.label(original);
+        }
+    }
+}
+
 #[derive(Default)]
 enum DownloadingStatus {
     #[default]
@@ -40,14 +134,21 @@ enum DownloadingStatus {
     Downloading(
         std::sync::mpsc::Receiver<Result<(String, meteo::Report), (Option<String>, Error)>>,
     ),
-    Downloaded {
-        original: String,
-        report: meteo::Report,
-    },
-    Failed {
-        original: Option<String>,
-        error: Error,
-    },
+    Failed,
+    Downloaded,
+}
+
+#[derive(Default)]
+struct DisplayingReport {
+    mode: DisplayMode,
+}
+
+#[derive(Default, Debug, PartialEq)]
+enum DisplayMode {
+    #[default]
+    Temperature,
+    Rain,
+    Raw,
 }
 
 impl DownloadingStatus {
@@ -55,28 +156,29 @@ impl DownloadingStatus {
         matches!(self, Self::Downloading(_))
     }
 
-    pub fn try_fetch_report(&mut self) {
+    pub fn try_fetch_report(&mut self) -> (Option<String>, Option<meteo::Report>, Option<Error>) {
         match std::mem::take(self) {
-            DownloadingStatus::NotDownloading => (),
+            DownloadingStatus::Downloaded { .. }
+            | DownloadingStatus::Failed { .. }
+            | DownloadingStatus::NotDownloading => (None, None, None),
             DownloadingStatus::Downloading(recv) => match recv.try_recv() {
                 Ok(Ok((original, report))) => {
-                    *self = Self::Downloaded { original, report };
+                    *self = Self::Downloaded;
+                    (Some(original), Some(report), None)
                 }
                 Ok(Err((original, error))) => {
-                    *self = Self::Failed { original, error };
+                    *self = Self::Failed;
+                    (original, None, Some(error))
                 }
                 Err(TryRecvError::Empty) => {
                     *self = Self::Downloading(recv);
+                    (None, None, None)
                 }
                 Err(TryRecvError::Disconnected) => {
-                    *self = Self::Failed {
-                        original: None,
-                        error: Error::InternalError,
-                    };
+                    *self = Self::Failed;
+                    (None, None, Some(Error::InternalError))
                 }
             },
-            DownloadingStatus::Downloaded { .. } => (),
-            DownloadingStatus::Failed { .. } => (),
         }
     }
 
@@ -115,6 +217,10 @@ impl Default for MeteoApp {
                 url: format!("{base_url}{url}"),
                 selected: false,
                 status: DownloadingStatus::NotDownloading,
+                displaying: DisplayingReport::default(),
+                original: None,
+                report: None,
+                error: None,
             })
             .collect();
 
@@ -141,11 +247,11 @@ impl MeteoApp {
                             ui.toggle_value(&mut report.selected, &report.name);
                             ui.separator();
                             match report.status {
-                                DownloadingStatus::Failed { ref error, .. } => {
-                                    ui.label("❌").on_hover_ui(|ui| {
+                                DownloadingStatus::Failed => ui.label("❌").on_hover_ui(|ui| {
+                                    if let Some(ref error) = report.error {
                                         ui.label(error.to_string());
-                                    })
-                                }
+                                    }
+                                }),
                                 DownloadingStatus::NotDownloading => ui.label("🔗"),
                                 DownloadingStatus::Downloading(_) => ui.spinner(),
                                 DownloadingStatus::Downloaded { .. } => ui.label("✓"),
@@ -174,18 +280,9 @@ impl MeteoApp {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            for report in self.report.iter() {
-                if report.selected {
-                    Window::new(&report.name).show(ctx, |ui| ());
-                }
+            for report in self.report.iter_mut() {
+                report.ui(ctx);
             }
-            // The central panel the region left after adding TopPanel's and SidePanel's
-            ui.heading("eframe template");
-
-            ui.horizontal(|ui| {
-                ui.label("Write something: ");
-                ui.text_edit_singleline(&mut self.label);
-            });
         });
     }
 
@@ -201,7 +298,18 @@ impl MeteoApp {
                     let _ = sender.send(Self::download_report(url));
                 });
             } else if report.status.downloading() {
-                report.status.try_fetch_report();
+                let (original, meteo_report, error) = report.status.try_fetch_report();
+
+                if let Some(original) = original {
+                    report.original = Some(original);
+                }
+                if let Some(meteo_report) = meteo_report {
+                    report.report = Some(meteo_report);
+                    report.error = None;
+                }
+                if let Some(error) = error {
+                    report.error = Some(error);
+                }
             }
         }
     }
