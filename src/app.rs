@@ -4,8 +4,7 @@ use egui::{Label, Pos2, Rect, Window};
 use scraper::{Html, Selector};
 
 pub struct MeteoApp {
-    report_list: Vec<Report>,
-    available_reports: Vec<meteo::Report>,
+    report: Vec<Report>,
 
     // Example stuff:
     label: String,
@@ -120,8 +119,7 @@ impl Default for MeteoApp {
             .collect();
 
         Self {
-            report_list: files,
-            available_reports: Vec::new(),
+            report: files,
             label: "Hello World!".to_owned(),
             value: 2.7,
         }
@@ -138,7 +136,7 @@ impl MeteoApp {
             egui::ScrollArea::both()
                 .drag_to_scroll(false)
                 .show(ui, |ui| {
-                    for report in self.report_list.iter_mut() {
+                    for report in self.report.iter_mut() {
                         ui.horizontal(|ui| {
                             ui.toggle_value(&mut report.selected, &report.name);
                             ui.separator();
@@ -176,8 +174,10 @@ impl MeteoApp {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            for report in self.available_reports.iter() {
-                Window::new(&report.metadata.name).show(ctx, |ui| todo!());
+            for report in self.report.iter() {
+                if report.selected {
+                    Window::new(&report.name).show(ctx, |ui| ());
+                }
             }
             // The central panel the region left after adding TopPanel's and SidePanel's
             ui.heading("eframe template");
@@ -190,7 +190,7 @@ impl MeteoApp {
     }
 
     pub fn update(&mut self) {
-        for report in self.report_list.iter_mut() {
+        for report in self.report.iter_mut() {
             if report.selected && report.status.not_downloading() {
                 let (sender, receiver) = std::sync::mpsc::channel();
                 report.status = DownloadingStatus::Downloading(receiver);
