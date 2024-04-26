@@ -1,12 +1,11 @@
 use std::{io::Read, sync::mpsc::TryRecvError};
 
-use egui::{Label, Pos2, Rect};
-use meteo::Report;
+use egui::{Label, Pos2, Rect, Window};
 use scraper::{Html, Selector};
 
 pub struct MeteoApp {
-    report_list: Vec<ToDownload>,
-    available_reports: Vec<Report>,
+    report_list: Vec<Report>,
+    available_reports: Vec<meteo::Report>,
 
     // Example stuff:
     label: String,
@@ -14,7 +13,7 @@ pub struct MeteoApp {
     value: f32,
 }
 
-struct ToDownload {
+struct Report {
     name: String,
     url: String,
     selected: bool,
@@ -27,6 +26,8 @@ enum Error {
     NetworkError(#[from] reqwest::Error),
     #[error(transparent)]
     ReportParsingError(#[from] meteo::ParseError),
+    #[error(transparent)]
+    IoError(#[from] std::io::Error),
     #[error("Internal Error")]
     InternalError,
     #[error(transparent)]
@@ -37,9 +38,17 @@ enum Error {
 enum DownloadingStatus {
     #[default]
     NotDownloading,
-    Downloading(std::sync::mpsc::Receiver<Result<Report, Error>>),
-    Downloaded,
-    Failed(Error),
+    Downloading(
+        std::sync::mpsc::Receiver<Result<(String, meteo::Report), (Option<String>, Error)>>,
+    ),
+    Downloaded {
+        original: String,
+        report: meteo::Report,
+    },
+    Failed {
+        original: Option<String>,
+        error: Error,
+    },
 }
 
 impl DownloadingStatus {
@@ -47,29 +56,28 @@ impl DownloadingStatus {
         matches!(self, Self::Downloading(_))
     }
 
-    pub fn try_get_report(&mut self) -> Option<Report> {
+    pub fn try_fetch_report(&mut self) {
         match std::mem::take(self) {
-            DownloadingStatus::NotDownloading => None,
+            DownloadingStatus::NotDownloading => (),
             DownloadingStatus::Downloading(recv) => match recv.try_recv() {
-                Ok(Ok(report)) => {
-                    *self = Self::Downloaded;
-                    Some(report)
+                Ok(Ok((original, report))) => {
+                    *self = Self::Downloaded { original, report };
                 }
-                Ok(Err(err)) => {
-                    *self = Self::Failed(err);
-                    None
+                Ok(Err((original, error))) => {
+                    *self = Self::Failed { original, error };
                 }
                 Err(TryRecvError::Empty) => {
                     *self = Self::Downloading(recv);
-                    None
                 }
                 Err(TryRecvError::Disconnected) => {
-                    *self = Self::Failed(Error::InternalError);
-                    None
+                    *self = Self::Failed {
+                        original: None,
+                        error: Error::InternalError,
+                    };
                 }
             },
-            DownloadingStatus::Downloaded => None,
-            DownloadingStatus::Failed(_) => None,
+            DownloadingStatus::Downloaded { .. } => (),
+            DownloadingStatus::Failed { .. } => (),
         }
     }
 
@@ -78,11 +86,11 @@ impl DownloadingStatus {
     }
 
     pub fn downloaded(&self) -> bool {
-        matches!(self, Self::Downloaded)
+        matches!(self, Self::Downloaded { .. })
     }
 
     pub fn failed(&self) -> bool {
-        matches!(self, Self::Failed(_))
+        matches!(self, Self::Failed { .. })
     }
 }
 
@@ -103,9 +111,9 @@ impl Default for MeteoApp {
             .filter_map(|el| el.attr("value").map(|attr| (el.inner_html(), attr))) // skip everything that doesn't contains a value
             .filter(|(_name, url)| !url.is_empty()) // skip the empty values
             .filter(|(_name, url)| !url.contains("NOAA")) // skip the NOAA stuff, it's the last two months
-            .map(|(name, url)| ToDownload {
+            .map(|(name, url)| Report {
                 name,
-                url: format!("{base_url}/{url}"),
+                url: format!("{base_url}{url}"),
                 selected: false,
                 status: DownloadingStatus::NotDownloading,
             })
@@ -135,14 +143,14 @@ impl MeteoApp {
                             ui.toggle_value(&mut report.selected, &report.name);
                             ui.separator();
                             match report.status {
-                                DownloadingStatus::Failed(ref error) => {
+                                DownloadingStatus::Failed { ref error, .. } => {
                                     ui.label("❌").on_hover_ui(|ui| {
                                         ui.label(error.to_string());
                                     })
                                 }
                                 DownloadingStatus::NotDownloading => ui.label("🔗"),
                                 DownloadingStatus::Downloading(_) => ui.spinner(),
-                                DownloadingStatus::Downloaded => ui.label("✓"),
+                                DownloadingStatus::Downloaded { .. } => ui.label("✓"),
                             };
                         });
                     }
@@ -168,6 +176,9 @@ impl MeteoApp {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            for report in self.available_reports.iter() {
+                Window::new(&report.metadata.name).show(ctx, |ui| todo!());
+            }
             // The central panel the region left after adding TopPanel's and SidePanel's
             ui.heading("eframe template");
 
@@ -190,21 +201,23 @@ impl MeteoApp {
                     let _ = sender.send(Self::download_report(url));
                 });
             } else if report.status.downloading() {
-                if let Some(report) = report.status.try_get_report() {
-                    self.available_reports.push(report);
-                    self.available_reports.sort_unstable();
-                };
+                report.status.try_fetch_report();
             }
         }
     }
 
-    fn download_report(url: String) -> Result<Report, Error> {
+    fn download_report(url: String) -> Result<(String, meteo::Report), (Option<String>, Error)> {
         let mut body = Vec::new();
-        reqwest::blocking::get(url)?
+        reqwest::blocking::get(&url)
+            .map_err(|err| (None, err.into()))?
             .read_to_end(&mut body)
-            .map_err(|err| anyhow::anyhow!(err))?;
+            .map_err(|err| (None, err.into()))?;
         let (body, _, _) = encoding_rs::WINDOWS_1252.decode(&body);
-        Ok(body.parse::<Report>()?)
+        Ok((
+            body.to_string(),
+            body.parse::<meteo::Report>()
+                .map_err(|err| (Some(body.to_string()), err.into()))?,
+        ))
     }
 }
 
