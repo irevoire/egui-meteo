@@ -20,7 +20,7 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "eframe template",
         native_options,
-        Box::new(|cc| Box::new(eframe_template::MeteoApp::new(cc))),
+        Box::new(|_cc| Box::new(eframe_template::MeteoApp::new())),
     )
 }
 
@@ -33,11 +33,13 @@ fn main() {
     let web_options = eframe::WebOptions::default();
 
     wasm_bindgen_futures::spawn_local(async {
+        let app = eframe_template::MeteoApp::new().await;
+        let app = Box::leak(Box::new(app));
         eframe::WebRunner::new()
             .start(
                 "the_canvas_id", // hardcode it
                 web_options,
-                Box::new(|cc| Box::new(eframe_template::MeteoApp::new(cc))),
+                Box::new(|_cc| Box::new(app.clone())),
             )
             .await
             .expect("failed to start eframe");

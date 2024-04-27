@@ -4,6 +4,7 @@ use egui::{Color32, Label, Pos2, Rect, Ui, Window};
 use egui_plot::{Legend, Line, Plot};
 use scraper::{Html, Selector};
 
+#[derive(Clone)]
 pub struct MeteoApp {
     report: Vec<Report>,
 
@@ -22,6 +23,26 @@ struct Report {
     report: Option<meteo::Report>,
     error: Option<Error>,
     displaying: DisplayingReport,
+}
+
+impl Clone for Report {
+    fn clone(&self) -> Self {
+        Self {
+            name: self.name.clone(),
+            url: self.url.clone(),
+            selected: self.selected,
+            status: match self.status {
+                DownloadingStatus::Downloading(_) => DownloadingStatus::NotDownloading,
+                DownloadingStatus::NotDownloading => DownloadingStatus::NotDownloading,
+                DownloadingStatus::Failed => DownloadingStatus::Failed,
+                DownloadingStatus::Downloaded => DownloadingStatus::Downloaded,
+            },
+            original: self.original.clone(),
+            report: self.report.clone(),
+            error: None,
+            displaying: self.displaying.clone(),
+        }
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -138,12 +159,12 @@ enum DownloadingStatus {
     Downloaded,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct DisplayingReport {
     mode: DisplayMode,
 }
 
-#[derive(Default, Debug, PartialEq)]
+#[derive(Default, Debug, PartialEq, Clone, Copy)]
 enum DisplayMode {
     #[default]
     Temperature,
@@ -195,14 +216,14 @@ impl DownloadingStatus {
     }
 }
 
-impl Default for MeteoApp {
-    fn default() -> Self {
+impl MeteoApp {
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn new() -> Self {
         let base_url = "http://meteo.lyc-chamson-levigan.ac-montpellier.fr/meteo/";
         let main_page = format!("{base_url}?page=releve");
 
-        let mut body = Vec::new();
-        let mut main_page = reqwest::blocking::get(main_page).unwrap();
-        main_page.read_to_end(&mut body).unwrap();
+        log::info!("Downloading the main page");
+        let body = get(&main_page).unwrap();
 
         let (body, _, _) = encoding_rs::WINDOWS_1252.decode(&body);
         let document = Html::parse_document(&body);
@@ -224,17 +245,46 @@ impl Default for MeteoApp {
             })
             .collect();
 
-        Self {
+        MeteoApp {
             report: files,
             label: "Hello World!".to_owned(),
             value: 2.7,
         }
     }
-}
 
-impl MeteoApp {
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        Default::default()
+    #[cfg(target_arch = "wasm32")]
+    pub async fn new() -> Self {
+        let base_url = "http://meteo.lyc-chamson-levigan.ac-montpellier.fr/meteo/";
+        let main_page = format!("{base_url}?page=releve");
+
+        log::info!("Downloading the main page");
+        let body = get(&main_page).await.unwrap();
+
+        let (body, _, _) = encoding_rs::WINDOWS_1252.decode(&body);
+        let document = Html::parse_document(&body);
+        let selector = Selector::parse("#gauche select option").unwrap();
+        let files = document
+            .select(&selector)
+            .filter_map(|el| el.attr("value").map(|attr| (el.inner_html(), attr))) // skip everything that doesn't contains a value
+            .filter(|(_name, url)| !url.is_empty()) // skip the empty values
+            .filter(|(_name, url)| !url.contains("NOAA")) // skip the NOAA stuff, it's the last two months
+            .map(|(name, url)| Report {
+                name,
+                url: format!("{base_url}{url}"),
+                selected: false,
+                status: DownloadingStatus::NotDownloading,
+                displaying: DisplayingReport::default(),
+                original: None,
+                report: None,
+                error: None,
+            })
+            .collect();
+
+        MeteoApp {
+            report: files,
+            label: "Hello World!".to_owned(),
+            value: 2.7,
+        }
     }
 
     pub fn ui(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -279,7 +329,7 @@ impl MeteoApp {
             });
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show(ctx, |_ui| {
             for report in self.report.iter_mut() {
                 report.ui(ctx);
             }
@@ -293,9 +343,15 @@ impl MeteoApp {
                 report.status = DownloadingStatus::Downloading(receiver);
 
                 let url = report.url.to_string();
+                #[cfg(not(target_arch = "wasm32"))]
                 std::thread::spawn(move || {
                     // if the receiver crashes then the whole ui is probably down
                     let _ = sender.send(Self::download_report(url));
+                });
+                #[cfg(target_arch = "wasm32")]
+                wasm_bindgen_futures::spawn_local(async move {
+                    // if the receiver crashes then the whole ui is probably down
+                    let _ = sender.send(Self::download_report(url).await);
                 });
             } else if report.status.downloading() {
                 let (original, meteo_report, error) = report.status.try_fetch_report();
@@ -314,12 +370,22 @@ impl MeteoApp {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn download_report(url: String) -> Result<(String, meteo::Report), (Option<String>, Error)> {
-        let mut body = Vec::new();
-        reqwest::blocking::get(&url)
-            .map_err(|err| (None, err.into()))?
-            .read_to_end(&mut body)
-            .map_err(|err| (None, err.into()))?;
+        let body = get(&url).map_err(|err| (None, err.into()))?;
+        let (body, _, _) = encoding_rs::WINDOWS_1252.decode(&body);
+        Ok((
+            body.to_string(),
+            body.parse::<meteo::Report>()
+                .map_err(|err| (Some(body.to_string()), err.into()))?,
+        ))
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    async fn download_report(
+        url: String,
+    ) -> Result<(String, meteo::Report), (Option<String>, Error)> {
+        let body = get(&url).await.map_err(|err| (None, err.into()))?;
         let (body, _, _) = encoding_rs::WINDOWS_1252.decode(&body);
         Ok((
             body.to_string(),
@@ -335,4 +401,22 @@ impl eframe::App for MeteoApp {
         self.ui(ctx, frame);
         self.update();
     }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn get(url: &str) -> Result<Vec<u8>, Error> {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_io()
+        .build()
+        .unwrap();
+    runtime.block_on(async {
+        let ret = reqwest::get(url).await?;
+        Ok(ret.bytes().await?.to_vec())
+    })
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn get(url: &str) -> Result<Vec<u8>, Error> {
+    let ret = reqwest::get(url).await?;
+    Ok(ret.bytes().await?.to_vec())
 }
