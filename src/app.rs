@@ -1,7 +1,7 @@
-use std::sync::mpsc::TryRecvError;
+use std::{ops::RangeInclusive, sync::mpsc::TryRecvError};
 
 use egui::{Color32, Ui, Window};
-use egui_plot::{Legend, Line, Plot};
+use egui_plot::{AxisHints, GridInput, GridMark, Legend, Line, Plot, PlotPoint};
 use scraper::{Html, Selector};
 
 #[derive(Clone)]
@@ -84,9 +84,102 @@ impl SingleReport {
         }
     }
 
+    #[allow(clippy::needless_pass_by_value)]
+    fn x_grid(input: GridInput) -> Vec<GridMark> {
+        const MINS_PER_DAY: f64 = 24.0 * 60.0;
+        const MINS_PER_H: f64 = 60.0;
+
+        // Note: this always fills all possible marks. For optimization, `input.bounds`
+        // could be used to decide when the low-interval grids (minutes) should be added.
+
+        let mut marks = vec![];
+
+        let (min, max) = input.bounds;
+        let min = min.floor() as i32;
+        let max = max.ceil() as i32;
+
+        for i in min..=max {
+            let step_size = if i % MINS_PER_DAY as i32 == 0 {
+                // 1 day
+                MINS_PER_DAY
+            } else if i % MINS_PER_H as i32 == 0 {
+                // 1 hour
+                MINS_PER_H
+            } else if i % 5 == 0 {
+                // 5min
+                5.0
+            } else {
+                // skip grids below 5min
+                continue;
+            };
+
+            marks.push(GridMark {
+                value: i as f64,
+                step_size,
+            });
+        }
+
+        marks
+    }
+
+    fn create_plot_time(name: &str, formatter: impl Fn(f64) -> String + 'static) -> Plot {
+        const MINS_PER_DAY: f64 = 24.0 * 60.0;
+        const MINS_PER_H: f64 = 60.0;
+
+        fn day(x: f64) -> f64 {
+            (x / MINS_PER_DAY).floor()
+        }
+
+        fn hour(x: f64) -> f64 {
+            (x.rem_euclid(MINS_PER_DAY) / MINS_PER_H).floor()
+        }
+
+        fn minute(x: f64) -> f64 {
+            x.rem_euclid(MINS_PER_H).floor()
+        }
+        fn is_approx_zero(val: f64) -> bool {
+            val.abs() < 1e-6
+        }
+
+        fn is_approx_integer(val: f64) -> bool {
+            val.fract().abs() < 1e-6
+        }
+
+        let time_formatter = |mark: GridMark, _digits, _range: &RangeInclusive<f64>| {
+            let minutes = mark.value;
+            if minutes < 0.0 || 5.0 * MINS_PER_DAY <= minutes {
+                // No labels outside value bounds
+                String::new()
+            } else if is_approx_integer(minutes / MINS_PER_DAY) {
+                // Days
+                format!("Day {}", day(minutes))
+            } else {
+                // Hours and minutes
+                format!("{h}:{m:02}", h = hour(minutes), m = minute(minutes))
+            }
+        };
+
+        let label_fmt = move |_s: &str, val: &PlotPoint| {
+            format!(
+                "Day {d}, {h}:{m:02}\n{p}",
+                d = day(val.x),
+                h = hour(val.x),
+                m = minute(val.x),
+                p = formatter(val.y)
+            )
+        };
+
+        Plot::new(name)
+            .legend(Legend::default())
+            .custom_x_axes(vec![AxisHints::new_x()
+                .label("Date")
+                .formatter(time_formatter)])
+            .label_formatter(label_fmt)
+    }
+
     pub fn temperature(&mut self, ui: &mut Ui) {
         if let Some(ref report) = self.report {
-            let plot = Plot::new("Temperature").legend(Legend::default());
+            let plot = Self::create_plot_time("Temperature", |degree| format!("{degree:.2}°C"));
             plot.show(ui, |ui| {
                 // gather all data
                 let low_temp: Vec<_> = report
