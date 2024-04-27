@@ -71,6 +71,7 @@ impl SingleReport {
                             "Températures",
                         );
                         ui.selectable_value(&mut self.displaying.mode, DisplayMode::Rain, "Pluie");
+                        ui.selectable_value(&mut self.displaying.mode, DisplayMode::Wind, "Vent");
                         ui.selectable_value(&mut self.displaying.mode, DisplayMode::Text, "Texte");
                     });
                     ui.separator();
@@ -78,6 +79,7 @@ impl SingleReport {
                     match self.displaying.mode {
                         DisplayMode::Temperature => self.temperature(ui),
                         DisplayMode::Rain => self.rain(ui),
+                        DisplayMode::Wind => self.wind(ui),
                         DisplayMode::Text => self.text(ui),
                     }
                 });
@@ -353,7 +355,7 @@ impl SingleReport {
 
     pub fn rain(&mut self, ui: &mut Ui) {
         if let Some(ref report) = self.report {
-            let plot = Self::create_plot_time("Pluie", |degree| format!("{degree:.2}mm"))
+            let plot = Self::create_plot_time("Pluie", |rain| format!("{rain:.2}mm"))
                 .custom_y_axes(vec![AxisHints::new_y().label("Pluie en mm/m²")]);
             plot.show(ui, |ui| {
                 // gather all data
@@ -370,6 +372,51 @@ impl SingleReport {
 
                 // display all data
                 ui.line(Line::new(rain).color(Color32::LIGHT_BLUE).name("pluie"));
+            });
+        }
+    }
+
+    pub fn wind(&mut self, ui: &mut Ui) {
+        if let Some(ref report) = self.report {
+            let plot = Self::create_plot_time("Vent", |wind| format!("{wind:.2}km/h"))
+                .custom_y_axes(vec![AxisHints::new_y().label("Vent en km/h")]);
+            plot.show(ui, |ui| {
+                let mean_wind: Vec<_> = report
+                    .days
+                    .iter()
+                    .map(|day| {
+                        [
+                            Self::date_to_chart(day.date.with_hms(12, 0, 0).unwrap().assume_utc()),
+                            day.avg_wind_speed as f64,
+                        ]
+                    })
+                    .collect();
+                let high_wind: Vec<_> = report
+                    .days
+                    .iter()
+                    .map(|day| {
+                        [
+                            Self::date_to_chart(
+                                day.high_wind_speed_date
+                                    .unwrap_or_else(|| day.date.with_hms(12, 0, 0).unwrap())
+                                    .assume_utc(),
+                            ),
+                            day.high_wind_speed as f64,
+                        ]
+                    })
+                    .collect();
+
+                // display all data
+                ui.line(
+                    Line::new(mean_wind)
+                        .color(Color32::GREEN)
+                        .name("vent moyen"),
+                );
+                ui.line(
+                    Line::new(high_wind)
+                        .color(Color32::RED)
+                        .name("vent maximal"),
+                );
             });
         }
     }
@@ -402,6 +449,7 @@ enum DisplayMode {
     #[default]
     Temperature,
     Rain,
+    Wind,
     Text,
 }
 
