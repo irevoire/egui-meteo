@@ -969,27 +969,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "eframe_template"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "eframe",
- "egui",
- "egui_plot",
- "encoding_rs",
- "env_logger",
- "getrandom",
- "log",
- "meteo",
- "reqwest",
- "scraper",
- "serde",
- "thiserror",
- "tokio",
- "wasm-bindgen-futures",
-]
-
-[[package]]
 name = "ego-tree"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1994,6 +1973,27 @@ dependencies = [
  "miette",
  "thiserror",
  "time",
+]
+
+[[package]]
+name = "meteo_egui"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "eframe",
+ "egui",
+ "egui_plot",
+ "encoding_rs",
+ "env_logger",
+ "getrandom",
+ "log",
+ "meteo",
+ "reqwest",
+ "scraper",
+ "serde",
+ "thiserror",
+ "tokio",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]

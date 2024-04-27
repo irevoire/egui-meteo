@@ -20,7 +20,7 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "eframe template",
         native_options,
-        Box::new(|_cc| Box::new(eframe_template::MeteoApp::new())),
+        Box::new(|_cc| Box::new(meteo_egui::MeteoApp::new())),
     )
 }
 
@@ -33,7 +33,7 @@ fn main() {
     let web_options = eframe::WebOptions::default();
 
     wasm_bindgen_futures::spawn_local(async {
-        let app = eframe_template::MeteoApp::new().await;
+        let app = meteo_egui::MeteoApp::new().await;
         let app = Box::leak(Box::new(app));
         eframe::WebRunner::new()
             .start(
