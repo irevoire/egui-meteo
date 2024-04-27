@@ -1,7 +1,4 @@
-use std::{
-    ops::{BitAnd, RangeInclusive},
-    sync::mpsc::TryRecvError,
-};
+use std::{ops::RangeInclusive, sync::mpsc::TryRecvError};
 
 use egui::{Color32, Ui, Window};
 use egui_plot::{AxisHints, GridInput, GridMark, Legend, Line, Plot, PlotPoint};
@@ -101,258 +98,144 @@ impl SingleReport {
 
         let duration = end - start;
 
-        let nb_days = duration.whole_days();
-        let nb_hours = duration.whole_hours();
-        let nb_seconds = duration.whole_seconds();
-
         let mut marks = vec![];
-        let year = time::Duration::days(365);
 
-        // We want the mark to fall on simple date
-        if nb_days > 365 * 10 {
-            // We're plotting ~more than 10 years
-            let step_size = Self::date_to_chart(null_time + Duration::days(365 * 10));
-            for year in [1990, 2000, 2010, 2020, 2030] {
+        let decade_step_size = Self::date_to_chart(null_time + Duration::days(365 * 10));
+        for year in [1990, 2000, 2010, 2020, 2030] {
+            let date = OffsetDateTime::new_utc(
+                Date::from_ordinal_date(year, 1).unwrap(),
+                Time::from_hms(0, 0, 0).unwrap(),
+            );
+            if (start..end).contains(&date) {
                 marks.push(GridMark {
-                    value: Self::date_to_chart(OffsetDateTime::new_utc(
-                        Date::from_ordinal_date(year, 1).unwrap(),
-                        Time::from_hms(0, 0, 0).unwrap(),
-                    )),
-                    step_size,
+                    value: Self::date_to_chart(date),
+                    step_size: decade_step_size,
                 });
             }
-        } else if nb_days > 365 {
-            // We're plotting ~more than 1 year
-            // we're going to output one mark every year
-            let step_size = Self::date_to_chart(null_time + Duration::days(365));
-            for year in start.year() - 1..=end.year() + 1 {
-                let date = OffsetDateTime::new_utc(
-                    Date::from_ordinal_date(year, 1).unwrap(),
-                    Time::from_hms(0, 0, 0).unwrap(),
-                );
+        }
+        let year_step_size = Self::date_to_chart(null_time + Duration::days(365));
+        let month_step_size = Self::date_to_chart(null_time + Duration::DAY * 30);
+        let day_step_size = Self::date_to_chart(null_time + Duration::DAY);
+        let hour_step_size = Self::date_to_chart(null_time + Duration::HOUR);
+        let minute_step_size = Self::date_to_chart(null_time + Duration::MINUTE);
+
+        for year in start.year()..=end.year() {
+            // First add the mark
+            let date = OffsetDateTime::new_utc(
+                Date::from_ordinal_date(year, 1).unwrap(),
+                Time::from_hms(0, 0, 0).unwrap(),
+            );
+            if (start..end).contains(&date) {
+                marks.push(GridMark {
+                    value: Self::date_to_chart(date),
+                    step_size: year_step_size,
+                });
+            }
+            // Early exit if there is too many months to display
+            if duration.whole_days() > 720 {
+                continue;
+            }
+            // Second, prepare the range for the month
+            let s = if year == start.year() {
+                start.month() as u8
+            } else {
+                Month::January as u8
+            };
+            let e = if year == end.year() {
+                end.month() as u8
+            } else {
+                Month::December as u8
+            };
+            for month in s..=e {
+                let month = Month::try_from(month).unwrap();
+                let date = date.replace_month(month).unwrap();
                 if (start..end).contains(&date) {
                     marks.push(GridMark {
                         value: Self::date_to_chart(date),
-                        step_size,
+                        step_size: month_step_size,
                     });
                 }
-            }
-        } else if nb_days > 30 {
-            // We're plotting ~more than 1 months
-            // we're going to output one mark every month
-            let step_size = Self::date_to_chart(null_time + Duration::DAY * 30);
-            for year in start.year()..=end.year() {
-                let s = if year == start.year() {
-                    start.month() as u8
+                if duration.whole_days() > 120 {
+                    continue;
+                }
+                let s = if year == start.year() && month == start.month() {
+                    start.day()
                 } else {
-                    Month::January as u8
+                    1
                 };
-                let e = if year == end.year() {
-                    end.month() as u8
+                let e = if year == end.year() && month == end.month() {
+                    end.day()
                 } else {
-                    Month::December as u8
+                    31
                 };
-                for month in s..=e {
-                    let month = Month::try_from(month).unwrap();
-                    let date = OffsetDateTime::new_utc(
-                        Date::from_calendar_date(year, month, 1).unwrap(),
-                        Time::from_hms(0, 0, 0).unwrap(),
-                    );
+                for day in s..=e {
+                    let date = match date.replace_day(day) {
+                        Ok(date) => date,
+                        Err(_) => continue,
+                    };
                     if (start..end).contains(&date) {
                         marks.push(GridMark {
                             value: Self::date_to_chart(date),
-                            step_size,
+                            step_size: day_step_size,
                         });
                     }
-                }
-            }
-        } else if nb_days > 1 {
-            // We're plotting more than 1 day
-            // we're going to output one mark every days
-            let step_size = Self::date_to_chart(null_time + Duration::DAY);
-            for year in start.year()..=end.year() {
-                let s = if year == start.year() {
-                    start.month() as u8
-                } else {
-                    Month::January as u8
-                };
-                let e = if year == end.year() {
-                    end.month() as u8
-                } else {
-                    Month::December as u8
-                };
-                for month in s..=e {
-                    let month = Month::try_from(month).unwrap();
-                    let s = if year == start.year() && month == start.month() {
-                        start.day()
+                    if duration.whole_hours() > 48 {
+                        continue;
+                    }
+                    let s = if year == start.year() && month == start.month() && day == start.day()
+                    {
+                        start.hour()
                     } else {
-                        1
+                        0
                     };
-                    let e = if year == end.year() && month == end.month() {
-                        end.day()
+                    let e = if year == end.year() && month == end.month() && day == end.day() {
+                        end.hour()
                     } else {
-                        31
+                        23
                     };
-                    for day in s..=e {
-                        let date = Date::from_calendar_date(year, month, day);
-                        if date.is_err() {
-                            // can error if the month don't have 31 days
-                            continue;
-                        }
-                        let date = OffsetDateTime::new_utc(
-                            date.unwrap(),
-                            Time::from_hms(0, 0, 0).unwrap(),
-                        );
+
+                    for hour in s..=e {
+                        let date = date.replace_hour(hour).unwrap();
                         if (start..end).contains(&date) {
                             marks.push(GridMark {
                                 value: Self::date_to_chart(date),
-                                step_size,
+                                step_size: hour_step_size,
                             });
                         }
-                    }
-                }
-            }
-        } else if nb_hours > 1 {
-            // We're plotting more than 1 hour
-            // we're going to output one mark every hours
-            let step_size = Self::date_to_chart(null_time + Duration::HOUR);
-            for year in start.year()..=end.year() {
-                let s = if year == start.year() {
-                    start.month() as u8
-                } else {
-                    Month::January as u8
-                };
-                let e = if year == end.year() {
-                    end.month() as u8
-                } else {
-                    Month::December as u8
-                };
-                for month in s..=e {
-                    let month = Month::try_from(month).unwrap();
-                    let s = if year == start.year() && month == start.month() {
-                        start.day()
-                    } else {
-                        1
-                    };
-                    let e = if year == end.year() && month == end.month() {
-                        end.day()
-                    } else {
-                        31
-                    };
-                    for day in s..=e {
-                        let date = Date::from_calendar_date(year, month, day);
-                        if date.is_err() {
-                            // can error if the month don't have 31 days
+                        if duration.whole_minutes() > 120 {
                             continue;
                         }
-                        let s =
-                            if year == start.year() && month == start.month() && day == start.day()
-                            {
-                                start.hour()
-                            } else {
-                                0
-                            };
-                        let e = if year == end.year() && month == end.month() && day == end.day() {
+                        let s = if year == start.year()
+                            && month == start.month()
+                            && day == start.day()
+                            && hour == start.hour()
+                        {
+                            start.hour()
+                        } else {
+                            0
+                        };
+                        let e = if year == end.year()
+                            && month == end.month()
+                            && day == end.day()
+                            && hour == end.hour()
+                        {
                             end.hour()
                         } else {
-                            23
+                            59
                         };
-
-                        for hour in s..=e {
-                            let date = OffsetDateTime::new_utc(
-                                date.unwrap(),
-                                Time::from_hms(hour, 0, 0).unwrap(),
-                            );
+                        for minute in s..=e {
+                            let date = date.replace_minute(minute).unwrap();
                             if (start..end).contains(&date) {
                                 marks.push(GridMark {
                                     value: Self::date_to_chart(date),
-                                    step_size,
+                                    step_size: minute_step_size,
                                 });
                             }
                         }
                     }
                 }
             }
-        } else {
-            let step_size = Self::date_to_chart(null_time + Duration::MINUTE);
-            for year in start.year()..=end.year() {
-                let s = if year == start.year() {
-                    start.month() as u8
-                } else {
-                    Month::January as u8
-                };
-                let e = if year == end.year() {
-                    end.month() as u8
-                } else {
-                    Month::December as u8
-                };
-                for month in s..=e {
-                    let month = Month::try_from(month).unwrap();
-                    let s = if year == start.year() && month == start.month() {
-                        start.day()
-                    } else {
-                        1
-                    };
-                    let e = if year == end.year() && month == end.month() {
-                        end.day()
-                    } else {
-                        31
-                    };
-                    for day in s..=e {
-                        let date = Date::from_calendar_date(year, month, day);
-                        if date.is_err() {
-                            // can error if the month don't have 31 days
-                            continue;
-                        }
-                        let s =
-                            if year == start.year() && month == start.month() && day == start.day()
-                            {
-                                start.hour()
-                            } else {
-                                0
-                            };
-                        let e = if year == end.year() && month == end.month() && day == end.day() {
-                            end.hour()
-                        } else {
-                            23
-                        };
-
-                        for hour in s..=e {
-                            let s = if year == start.year()
-                                && month == start.month()
-                                && day == start.day()
-                                && hour == start.hour()
-                            {
-                                start.hour()
-                            } else {
-                                0
-                            };
-                            let e = if year == end.year()
-                                && month == end.month()
-                                && day == end.day()
-                                && hour == end.hour()
-                            {
-                                end.hour()
-                            } else {
-                                59
-                            };
-                            for minute in s..=e {
-                                let date = OffsetDateTime::new_utc(
-                                    date.unwrap(),
-                                    Time::from_hms(hour, minute, 0).unwrap(),
-                                );
-                                if (start..=end).contains(&date) {
-                                    marks.push(GridMark {
-                                        value: Self::date_to_chart(date),
-                                        step_size,
-                                    });
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        };
+        }
 
         marks
     }
@@ -401,11 +284,13 @@ impl SingleReport {
     // since we MUST store an f64 but all we have is a i64 and we absolutely don't want to lose any precision
     // we're going to store it as-is in a f64 via a transmute instead of doing a cast
     fn date_to_chart(date: OffsetDateTime) -> f64 {
-        unsafe { std::mem::transmute(date.unix_timestamp()) }
+        // unsafe { std::mem::transmute(date.unix_timestamp()) }
+        date.unix_timestamp() as f64
     }
 
     fn date_from_chart(axis: f64) -> Option<OffsetDateTime> {
-        let unix_timestamp: i64 = unsafe { std::mem::transmute(axis) };
+        // let unix_timestamp: i64 = unsafe { std::mem::transmute(axis) };
+        let unix_timestamp: i64 = axis as i64;
         OffsetDateTime::from_unix_timestamp(unix_timestamp).ok()
     }
 
