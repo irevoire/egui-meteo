@@ -33,13 +33,11 @@ fn main() {
     let web_options = eframe::WebOptions::default();
 
     wasm_bindgen_futures::spawn_local(async {
-        let app = meteo_egui::MeteoApp::new().await;
-        let app = Box::leak(Box::new(app));
         eframe::WebRunner::new()
             .start(
                 "the_canvas_id", // hardcode it
                 web_options,
-                Box::new(|_cc| Box::new(app.clone())),
+                Box::new(|_cc| Box::new(meteo_egui::MeteoApp::new())),
             )
             .await
             .expect("failed to start eframe");
