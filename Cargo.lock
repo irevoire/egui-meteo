@@ -2002,6 +2002,7 @@ dependencies = [
 [[package]]
 name = "meteo"
 version = "0.1.0"
+source = "git+https://github.com/irevoire/meteo#e9e4bb10fecb0ff6c165dec6771ac4c2f47a43e4"
 dependencies = [
  "logos",
  "miette",

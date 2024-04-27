@@ -23,7 +23,7 @@ log = "0.4"
 # You only need serde if you want app persistence:
 serde = { version = "1", features = ["derive"] }
 reqwest = { version = "0.12.4" }
-meteo = { path = "../meteo" }
+meteo = { git = "https://github.com/irevoire/meteo" }
 encoding_rs = "0.8.34"
 scraper = "0.19.0"
 thiserror = "1.0.59"
