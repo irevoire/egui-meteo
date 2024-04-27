@@ -1,6 +1,6 @@
 use std::{ops::RangeInclusive, sync::mpsc::TryRecvError};
 
-use egui::{Color32, Ui, Window};
+use egui::{Color32, RichText, Ui, Window};
 use egui_plot::{AxisHints, GridInput, GridMark, Legend, Line, Plot, PlotPoint};
 use scraper::{Html, Selector};
 use time::{macros::format_description, Date, Duration, Month, OffsetDateTime, Time};
@@ -60,9 +60,9 @@ impl SingleReport {
         if self.selected {
             let mut still_opened = true;
             Window::new(&self.name)
-                .open(&mut still_opened)
                 .default_width(800.0)
                 .default_height(500.0)
+                .open(&mut still_opened)
                 .show(ctx, |ui| {
                     ui.horizontal(|ui| {
                         ui.selectable_value(
@@ -71,14 +71,14 @@ impl SingleReport {
                             "Températures",
                         );
                         ui.selectable_value(&mut self.displaying.mode, DisplayMode::Rain, "Pluie");
-                        ui.selectable_value(&mut self.displaying.mode, DisplayMode::Raw, "Texte");
+                        ui.selectable_value(&mut self.displaying.mode, DisplayMode::Text, "Texte");
                     });
                     ui.separator();
 
                     match self.displaying.mode {
                         DisplayMode::Temperature => self.temperature(ui),
                         DisplayMode::Rain => self.rain(ui),
-                        DisplayMode::Raw => self.raw(ui),
+                        DisplayMode::Text => self.text(ui),
                     }
                 });
             self.selected = still_opened;
@@ -374,9 +374,9 @@ impl SingleReport {
         }
     }
 
-    pub fn raw(&mut self, ui: &mut Ui) {
+    pub fn text(&mut self, ui: &mut Ui) {
         if let Some(ref original) = self.original {
-            ui.label(original);
+            ui.label(RichText::new(original).monospace());
         }
     }
 }
@@ -402,7 +402,7 @@ enum DisplayMode {
     #[default]
     Temperature,
     Rain,
-    Raw,
+    Text,
 }
 
 impl DownloadingStatus {
