@@ -68,10 +68,10 @@ impl SingleReport {
                         ui.selectable_value(
                             &mut self.displaying.mode,
                             DisplayMode::Temperature,
-                            "temperatures",
+                            "Températures",
                         );
-                        ui.selectable_value(&mut self.displaying.mode, DisplayMode::Rain, "rain");
-                        ui.selectable_value(&mut self.displaying.mode, DisplayMode::Raw, "Raw");
+                        ui.selectable_value(&mut self.displaying.mode, DisplayMode::Rain, "Pluie");
+                        ui.selectable_value(&mut self.displaying.mode, DisplayMode::Raw, "Texte");
                     });
                     ui.separator();
 
@@ -296,7 +296,8 @@ impl SingleReport {
 
     pub fn temperature(&mut self, ui: &mut Ui) {
         if let Some(ref report) = self.report {
-            let plot = Self::create_plot_time("Temperature", |degree| format!("{degree:.2}°C"));
+            let plot = Self::create_plot_time("Temperature", |degree| format!("{degree:.2}°C"))
+                .custom_y_axes(vec![AxisHints::new_y().label("Temperature en °C")]);
             plot.show(ui, |ui| {
                 // gather all data
                 let low_temp: Vec<_> = report
@@ -352,13 +353,19 @@ impl SingleReport {
 
     pub fn rain(&mut self, ui: &mut Ui) {
         if let Some(ref report) = self.report {
-            let plot = Plot::new("Pluie").legend(Legend::default());
+            let plot = Self::create_plot_time("Pluie", |degree| format!("{degree:.2}mm"))
+                .custom_y_axes(vec![AxisHints::new_y().label("Pluie en mm/m²")]);
             plot.show(ui, |ui| {
                 // gather all data
                 let rain: Vec<_> = report
                     .days
                     .iter()
-                    .map(|day| [day.date.day() as f64, day.rain as f64])
+                    .map(|day| {
+                        [
+                            Self::date_to_chart(day.date.with_hms(12, 0, 0).unwrap().assume_utc()),
+                            day.rain as f64,
+                        ]
+                    })
                     .collect();
 
                 // display all data
