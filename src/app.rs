@@ -1,17 +1,12 @@
-use std::{io::Read, sync::mpsc::TryRecvError};
+use std::sync::mpsc::TryRecvError;
 
-use egui::{Color32, Label, Pos2, Rect, Ui, Window};
+use egui::{Color32, Ui, Window};
 use egui_plot::{Legend, Line, Plot};
 use scraper::{Html, Selector};
 
 #[derive(Clone)]
 pub struct MeteoApp {
-    report: Vec<Report>,
-
-    // Example stuff:
-    label: String,
-
-    value: f32,
+    reports: Vec<Report>,
 }
 
 struct Report {
@@ -207,10 +202,12 @@ impl DownloadingStatus {
         matches!(self, Self::NotDownloading)
     }
 
+    #[allow(unused)]
     pub fn downloaded(&self) -> bool {
         matches!(self, Self::Downloaded { .. })
     }
 
+    #[allow(unused)]
     pub fn failed(&self) -> bool {
         matches!(self, Self::Failed { .. })
     }
@@ -245,11 +242,7 @@ impl MeteoApp {
             })
             .collect();
 
-        MeteoApp {
-            report: files,
-            label: "Hello World!".to_owned(),
-            value: 2.7,
-        }
+        MeteoApp { reports: files }
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -280,11 +273,7 @@ impl MeteoApp {
             })
             .collect();
 
-        MeteoApp {
-            report: files,
-            label: "Hello World!".to_owned(),
-            value: 2.7,
-        }
+        MeteoApp { reports: files }
     }
 
     pub fn ui(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -292,7 +281,7 @@ impl MeteoApp {
             egui::ScrollArea::both()
                 .drag_to_scroll(false)
                 .show(ui, |ui| {
-                    for report in self.report.iter_mut() {
+                    for report in self.reports.iter_mut() {
                         ui.horizontal(|ui| {
                             ui.toggle_value(&mut report.selected, &report.name);
                             ui.separator();
@@ -330,14 +319,14 @@ impl MeteoApp {
         });
 
         egui::CentralPanel::default().show(ctx, |_ui| {
-            for report in self.report.iter_mut() {
+            for report in self.reports.iter_mut() {
                 report.ui(ctx);
             }
         });
     }
 
     pub fn update(&mut self) {
-        for report in self.report.iter_mut() {
+        for report in self.reports.iter_mut() {
             if report.selected && report.status.not_downloading() {
                 let (sender, receiver) = std::sync::mpsc::channel();
                 report.status = DownloadingStatus::Downloading(receiver);
