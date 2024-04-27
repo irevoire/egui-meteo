@@ -57,24 +57,28 @@ enum Error {
 impl Report {
     pub fn ui(&mut self, ctx: &egui::Context) {
         if self.selected {
-            Window::new(&self.name).show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    ui.selectable_value(
-                        &mut self.displaying.mode,
-                        DisplayMode::Temperature,
-                        "temperatures",
-                    );
-                    ui.selectable_value(&mut self.displaying.mode, DisplayMode::Rain, "rain");
-                    ui.selectable_value(&mut self.displaying.mode, DisplayMode::Raw, "Raw");
-                });
-                ui.separator();
+            let mut still_opened = true;
+            Window::new(&self.name)
+                .open(&mut still_opened)
+                .show(ctx, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.selectable_value(
+                            &mut self.displaying.mode,
+                            DisplayMode::Temperature,
+                            "temperatures",
+                        );
+                        ui.selectable_value(&mut self.displaying.mode, DisplayMode::Rain, "rain");
+                        ui.selectable_value(&mut self.displaying.mode, DisplayMode::Raw, "Raw");
+                    });
+                    ui.separator();
 
-                match self.displaying.mode {
-                    DisplayMode::Temperature => self.temperature(ui),
-                    DisplayMode::Rain => self.rain(ui),
-                    DisplayMode::Raw => self.raw(ui),
-                }
-            });
+                    match self.displaying.mode {
+                        DisplayMode::Temperature => self.temperature(ui),
+                        DisplayMode::Rain => self.rain(ui),
+                        DisplayMode::Raw => self.raw(ui),
+                    }
+                });
+            self.selected = still_opened;
         }
     }
 
