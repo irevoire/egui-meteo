@@ -1,8 +1,12 @@
-use std::{ops::RangeInclusive, sync::mpsc::TryRecvError};
+use std::{
+    ops::{BitAnd, RangeInclusive},
+    sync::mpsc::TryRecvError,
+};
 
 use egui::{Color32, Ui, Window};
 use egui_plot::{AxisHints, GridInput, GridMark, Legend, Line, Plot, PlotPoint};
 use scraper::{Html, Selector};
+use time::{macros::format_description, Date, Duration, Month, OffsetDateTime, Time};
 
 #[derive(Clone)]
 pub struct MeteoApp {
@@ -86,87 +90,303 @@ impl SingleReport {
 
     #[allow(clippy::needless_pass_by_value)]
     fn x_grid(input: GridInput) -> Vec<GridMark> {
-        const MINS_PER_DAY: f64 = 24.0 * 60.0;
-        const MINS_PER_H: f64 = 60.0;
+        let null_time = OffsetDateTime::from_unix_timestamp(0).unwrap();
+        let max_time = OffsetDateTime::from_unix_timestamp(253402300799).unwrap();
 
-        // Note: this always fills all possible marks. For optimization, `input.bounds`
-        // could be used to decide when the low-interval grids (minutes) should be added.
+        let (start, end) = input.bounds;
+        let (start, end) = (
+            Self::date_from_chart(start).unwrap_or(null_time),
+            Self::date_from_chart(end).unwrap_or(max_time),
+        );
+
+        let duration = end - start;
+
+        let nb_days = duration.whole_days();
+        let nb_hours = duration.whole_hours();
+        let nb_seconds = duration.whole_seconds();
 
         let mut marks = vec![];
+        let year = time::Duration::days(365);
 
-        let (min, max) = input.bounds;
-        let min = min.floor() as i32;
-        let max = max.ceil() as i32;
+        // We want the mark to fall on simple date
+        if nb_days > 365 * 10 {
+            // We're plotting ~more than 10 years
+            let step_size = Self::date_to_chart(null_time + Duration::days(365 * 10));
+            for year in [1990, 2000, 2010, 2020, 2030] {
+                marks.push(GridMark {
+                    value: Self::date_to_chart(OffsetDateTime::new_utc(
+                        Date::from_ordinal_date(year, 1).unwrap(),
+                        Time::from_hms(0, 0, 0).unwrap(),
+                    )),
+                    step_size,
+                });
+            }
+        } else if nb_days > 365 {
+            // We're plotting ~more than 1 year
+            // we're going to output one mark every year
+            let step_size = Self::date_to_chart(null_time + Duration::days(365));
+            for year in start.year() - 1..=end.year() + 1 {
+                let date = OffsetDateTime::new_utc(
+                    Date::from_ordinal_date(year, 1).unwrap(),
+                    Time::from_hms(0, 0, 0).unwrap(),
+                );
+                if (start..end).contains(&date) {
+                    marks.push(GridMark {
+                        value: Self::date_to_chart(date),
+                        step_size,
+                    });
+                }
+            }
+        } else if nb_days > 30 {
+            // We're plotting ~more than 1 months
+            // we're going to output one mark every month
+            let step_size = Self::date_to_chart(null_time + Duration::DAY * 30);
+            for year in start.year()..=end.year() {
+                let s = if year == start.year() {
+                    start.month() as u8
+                } else {
+                    Month::January as u8
+                };
+                let e = if year == end.year() {
+                    end.month() as u8
+                } else {
+                    Month::December as u8
+                };
+                for month in s..=e {
+                    let month = Month::try_from(month).unwrap();
+                    let date = OffsetDateTime::new_utc(
+                        Date::from_calendar_date(year, month, 1).unwrap(),
+                        Time::from_hms(0, 0, 0).unwrap(),
+                    );
+                    if (start..end).contains(&date) {
+                        marks.push(GridMark {
+                            value: Self::date_to_chart(date),
+                            step_size,
+                        });
+                    }
+                }
+            }
+        } else if nb_days > 1 {
+            // We're plotting more than 1 day
+            // we're going to output one mark every days
+            let step_size = Self::date_to_chart(null_time + Duration::DAY);
+            for year in start.year()..=end.year() {
+                let s = if year == start.year() {
+                    start.month() as u8
+                } else {
+                    Month::January as u8
+                };
+                let e = if year == end.year() {
+                    end.month() as u8
+                } else {
+                    Month::December as u8
+                };
+                for month in s..=e {
+                    let month = Month::try_from(month).unwrap();
+                    let s = if year == start.year() && month == start.month() {
+                        start.day()
+                    } else {
+                        1
+                    };
+                    let e = if year == end.year() && month == end.month() {
+                        end.day()
+                    } else {
+                        31
+                    };
+                    for day in s..=e {
+                        let date = Date::from_calendar_date(year, month, day);
+                        if date.is_err() {
+                            // can error if the month don't have 31 days
+                            continue;
+                        }
+                        let date = OffsetDateTime::new_utc(
+                            date.unwrap(),
+                            Time::from_hms(0, 0, 0).unwrap(),
+                        );
+                        if (start..end).contains(&date) {
+                            marks.push(GridMark {
+                                value: Self::date_to_chart(date),
+                                step_size,
+                            });
+                        }
+                    }
+                }
+            }
+        } else if nb_hours > 1 {
+            // We're plotting more than 1 hour
+            // we're going to output one mark every hours
+            let step_size = Self::date_to_chart(null_time + Duration::HOUR);
+            for year in start.year()..=end.year() {
+                let s = if year == start.year() {
+                    start.month() as u8
+                } else {
+                    Month::January as u8
+                };
+                let e = if year == end.year() {
+                    end.month() as u8
+                } else {
+                    Month::December as u8
+                };
+                for month in s..=e {
+                    let month = Month::try_from(month).unwrap();
+                    let s = if year == start.year() && month == start.month() {
+                        start.day()
+                    } else {
+                        1
+                    };
+                    let e = if year == end.year() && month == end.month() {
+                        end.day()
+                    } else {
+                        31
+                    };
+                    for day in s..=e {
+                        let date = Date::from_calendar_date(year, month, day);
+                        if date.is_err() {
+                            // can error if the month don't have 31 days
+                            continue;
+                        }
+                        let s =
+                            if year == start.year() && month == start.month() && day == start.day()
+                            {
+                                start.hour()
+                            } else {
+                                0
+                            };
+                        let e = if year == end.year() && month == end.month() && day == end.day() {
+                            end.hour()
+                        } else {
+                            23
+                        };
 
-        for i in min..=max {
-            let step_size = if i % MINS_PER_DAY as i32 == 0 {
-                // 1 day
-                MINS_PER_DAY
-            } else if i % MINS_PER_H as i32 == 0 {
-                // 1 hour
-                MINS_PER_H
-            } else if i % 5 == 0 {
-                // 5min
-                5.0
-            } else {
-                // skip grids below 5min
-                continue;
-            };
+                        for hour in s..=e {
+                            let date = OffsetDateTime::new_utc(
+                                date.unwrap(),
+                                Time::from_hms(hour, 0, 0).unwrap(),
+                            );
+                            if (start..end).contains(&date) {
+                                marks.push(GridMark {
+                                    value: Self::date_to_chart(date),
+                                    step_size,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            let step_size = Self::date_to_chart(null_time + Duration::MINUTE);
+            for year in start.year()..=end.year() {
+                let s = if year == start.year() {
+                    start.month() as u8
+                } else {
+                    Month::January as u8
+                };
+                let e = if year == end.year() {
+                    end.month() as u8
+                } else {
+                    Month::December as u8
+                };
+                for month in s..=e {
+                    let month = Month::try_from(month).unwrap();
+                    let s = if year == start.year() && month == start.month() {
+                        start.day()
+                    } else {
+                        1
+                    };
+                    let e = if year == end.year() && month == end.month() {
+                        end.day()
+                    } else {
+                        31
+                    };
+                    for day in s..=e {
+                        let date = Date::from_calendar_date(year, month, day);
+                        if date.is_err() {
+                            // can error if the month don't have 31 days
+                            continue;
+                        }
+                        let s =
+                            if year == start.year() && month == start.month() && day == start.day()
+                            {
+                                start.hour()
+                            } else {
+                                0
+                            };
+                        let e = if year == end.year() && month == end.month() && day == end.day() {
+                            end.hour()
+                        } else {
+                            23
+                        };
 
-            marks.push(GridMark {
-                value: i as f64,
-                step_size,
-            });
-        }
+                        for hour in s..=e {
+                            let s = if year == start.year()
+                                && month == start.month()
+                                && day == start.day()
+                                && hour == start.hour()
+                            {
+                                start.hour()
+                            } else {
+                                0
+                            };
+                            let e = if year == end.year()
+                                && month == end.month()
+                                && day == end.day()
+                                && hour == end.hour()
+                            {
+                                end.hour()
+                            } else {
+                                59
+                            };
+                            for minute in s..=e {
+                                let date = OffsetDateTime::new_utc(
+                                    date.unwrap(),
+                                    Time::from_hms(hour, minute, 0).unwrap(),
+                                );
+                                if (start..=end).contains(&date) {
+                                    marks.push(GridMark {
+                                        value: Self::date_to_chart(date),
+                                        step_size,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
 
         marks
     }
 
     fn create_plot_time(name: &str, formatter: impl Fn(f64) -> String + 'static) -> Plot {
-        const MINS_PER_DAY: f64 = 24.0 * 60.0;
-        const MINS_PER_H: f64 = 60.0;
-
-        fn day(x: f64) -> f64 {
-            (x / MINS_PER_DAY).floor()
-        }
-
-        fn hour(x: f64) -> f64 {
-            (x.rem_euclid(MINS_PER_DAY) / MINS_PER_H).floor()
-        }
-
-        fn minute(x: f64) -> f64 {
-            x.rem_euclid(MINS_PER_H).floor()
-        }
-        fn is_approx_zero(val: f64) -> bool {
-            val.abs() < 1e-6
-        }
-
-        fn is_approx_integer(val: f64) -> bool {
-            val.fract().abs() < 1e-6
-        }
-
         let time_formatter = |mark: GridMark, _digits, _range: &RangeInclusive<f64>| {
-            let minutes = mark.value;
-            if minutes < 0.0 || 5.0 * MINS_PER_DAY <= minutes {
-                // No labels outside value bounds
-                String::new()
-            } else if is_approx_integer(minutes / MINS_PER_DAY) {
-                // Days
-                format!("Day {}", day(minutes))
+            let step = Self::date_from_chart(mark.step_size).unwrap();
+            let step = step - OffsetDateTime::from_unix_timestamp(0).unwrap();
+            let days = step.whole_days();
+            let format = if days > 365 * 3 {
+                format_description!("[year]")
+            } else if days > 30 * 3 {
+                format_description!("[month]/[year]")
+            } else if days > 3 {
+                format_description!("[day]/[month]/[year]")
             } else {
-                // Hours and minutes
-                format!("{h}:{m:02}", h = hour(minutes), m = minute(minutes))
-            }
+                format_description!("[day]/[month]/[year] - [hour]:[minute]")
+            };
+            Self::date_from_chart(mark.value)
+                .unwrap()
+                .format(format)
+                .unwrap()
         };
 
         let label_fmt = move |_s: &str, val: &PlotPoint| {
-            format!(
-                "Day {d}, {h}:{m:02}\n{p}",
-                d = day(val.x),
-                h = hour(val.x),
-                m = minute(val.x),
-                p = formatter(val.y)
-            )
+            let date = Self::date_from_chart(val.x)
+                .map(|date| {
+                    date.format(format_description!(
+                        "[day]/[month]/[year] - [hour]:[minute]"
+                    ))
+                    .unwrap()
+                })
+                .unwrap_or(String::from(""));
+            format!("{}\n{}", date, formatter(val.y))
         };
 
         Plot::new(name)
@@ -174,7 +394,19 @@ impl SingleReport {
             .custom_x_axes(vec![AxisHints::new_x()
                 .label("Date")
                 .formatter(time_formatter)])
+            .x_grid_spacer(Self::x_grid)
             .label_formatter(label_fmt)
+    }
+
+    // since we MUST store an f64 but all we have is a i64 and we absolutely don't want to lose any precision
+    // we're going to store it as-is in a f64 via a transmute instead of doing a cast
+    fn date_to_chart(date: OffsetDateTime) -> f64 {
+        unsafe { std::mem::transmute(date.unix_timestamp()) }
+    }
+
+    fn date_from_chart(axis: f64) -> Option<OffsetDateTime> {
+        let unix_timestamp: i64 = unsafe { std::mem::transmute(axis) };
+        OffsetDateTime::from_unix_timestamp(unix_timestamp).ok()
     }
 
     pub fn temperature(&mut self, ui: &mut Ui) {
@@ -185,17 +417,32 @@ impl SingleReport {
                 let low_temp: Vec<_> = report
                     .days
                     .iter()
-                    .map(|day| [day.date.day() as f64, day.low_temp as f64])
+                    .map(|day| {
+                        [
+                            Self::date_to_chart(day.low_temp_date.assume_utc()),
+                            day.low_temp as f64,
+                        ]
+                    })
                     .collect();
                 let mean_temp: Vec<_> = report
                     .days
                     .iter()
-                    .map(|day| [day.date.day() as f64, day.mean_temp as f64])
+                    .map(|day| {
+                        [
+                            Self::date_to_chart(day.date.with_hms(12, 0, 0).unwrap().assume_utc()),
+                            day.mean_temp as f64,
+                        ]
+                    })
                     .collect();
                 let high_temp: Vec<_> = report
                     .days
                     .iter()
-                    .map(|day| [day.date.day() as f64, day.high_temp as f64])
+                    .map(|day| {
+                        [
+                            Self::date_to_chart(day.high_temp_date.assume_utc()),
+                            day.high_temp as f64,
+                        ]
+                    })
                     .collect();
 
                 // display all data
