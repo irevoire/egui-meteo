@@ -6,10 +6,10 @@ use scraper::{Html, Selector};
 
 #[derive(Clone)]
 pub struct MeteoApp {
-    reports: Vec<Report>,
+    reports: Vec<SingleReport>,
 }
 
-struct Report {
+struct SingleReport {
     name: String,
     url: String,
     selected: bool,
@@ -20,7 +20,7 @@ struct Report {
     displaying: DisplayingReport,
 }
 
-impl Clone for Report {
+impl Clone for SingleReport {
     fn clone(&self) -> Self {
         Self {
             name: self.name.clone(),
@@ -54,12 +54,14 @@ enum Error {
     Other(#[from] anyhow::Error),
 }
 
-impl Report {
+impl SingleReport {
     pub fn ui(&mut self, ctx: &egui::Context) {
         if self.selected {
             let mut still_opened = true;
             Window::new(&self.name)
                 .open(&mut still_opened)
+                .default_width(800.0)
+                .default_height(500.0)
                 .show(ctx, |ui| {
                     ui.horizontal(|ui| {
                         ui.selectable_value(
@@ -234,7 +236,7 @@ impl MeteoApp {
             .filter_map(|el| el.attr("value").map(|attr| (el.inner_html(), attr))) // skip everything that doesn't contains a value
             .filter(|(_name, url)| !url.is_empty()) // skip the empty values
             .filter(|(_name, url)| !url.contains("NOAA")) // skip the NOAA stuff, it's the last two months
-            .map(|(name, url)| Report {
+            .map(|(name, url)| SingleReport {
                 name,
                 url: format!("{base_url}{url}"),
                 selected: false,
@@ -265,7 +267,7 @@ impl MeteoApp {
             .filter_map(|el| el.attr("value").map(|attr| (el.inner_html(), attr))) // skip everything that doesn't contains a value
             .filter(|(_name, url)| !url.is_empty()) // skip the empty values
             .filter(|(_name, url)| !url.contains("NOAA")) // skip the NOAA stuff, it's the last two months
-            .map(|(name, url)| Report {
+            .map(|(name, url)| SingleReport {
                 name,
                 url: format!("{base_url}{url}"),
                 selected: false,
