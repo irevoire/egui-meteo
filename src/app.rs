@@ -1,7 +1,9 @@
-use std::{cmp::Reverse, ops::RangeInclusive};
+use std::{cmp::Reverse, ops::RangeInclusive, sync::Arc};
 
 use egui::{Color32, RichText, Ui, Window};
-use egui_plot::{AxisHints, GridInput, GridMark, Legend, Line, Plot, PlotPoint};
+use egui_plot::{
+    AxisHints, CoordinatesFormatter, GridInput, GridMark, Legend, Line, Plot, PlotPoint,
+};
 use include_dir::{include_dir, Dir};
 use time::{macros::format_description, Date, Duration, Month, OffsetDateTime, Time};
 
@@ -262,8 +264,8 @@ impl SingleReport {
                 .unwrap()
         };
 
-        let label_fmt = move |_s: &str, val: &PlotPoint| {
-            let date = Self::date_from_chart(val.x)
+        let format_plot_point = Arc::new(move |point: &PlotPoint| {
+            let date = Self::date_from_chart(point.x)
                 .map(|date| {
                     date.format(format_description!(
                         "[day]/[month]/[year] - [hour]:[minute]"
@@ -271,16 +273,22 @@ impl SingleReport {
                     .unwrap()
                 })
                 .unwrap_or(String::from(""));
-            format!("{}\n{}", date, formatter(val.y))
-        };
+            format!("{}\n{}", date, formatter(point.y))
+        });
+
+        let fmt = format_plot_point.clone();
 
         Plot::new(name)
             .legend(Legend::default())
+            .coordinates_formatter(
+                egui_plot::Corner::LeftBottom,
+                CoordinatesFormatter::new(move |point, _| fmt(point)),
+            )
             .custom_x_axes(vec![AxisHints::new_x()
                 .label("Date")
                 .formatter(time_formatter)])
             .x_grid_spacer(Self::x_grid)
-            .label_formatter(label_fmt)
+            .label_formatter(move |_, point| format_plot_point(point))
     }
 
     // since we MUST store an f64 but all we have is a i64 and we absolutely don't want to lose any precision
