@@ -48,8 +48,8 @@ async fn main() {
 
 async fn handle_report(reports: Vec<PathBuf>, name: String, url: String) -> Option<Report> {
     let filename = PathBuf::from(sanitize(&name));
-    if reports.contains(&filename) {
-        println!("Report {name} already exists");
+    let path = PathBuf::from("../assets/reports/raw/").join(filename);
+    if reports.contains(&path) {
         return None;
     }
     println!("Downloading the report {name}");
@@ -59,12 +59,7 @@ async fn handle_report(reports: Vec<PathBuf>, name: String, url: String) -> Opti
     let (body, _, _) = encoding_rs::WINDOWS_1252.decode(&body);
     // replace the useless crlf separator
     let body = body.replace("\r\n", "\n");
-    tokio::fs::write(
-        dbg!(&format!("../assets/reports/raw/{}", filename.display())),
-        body.as_bytes(),
-    )
-    .await
-    .unwrap();
+    tokio::fs::write(path, body.as_bytes()).await.unwrap();
     println!("Wrote the report on disk");
     Some(body.parse::<meteo::Report>().unwrap())
 }
