@@ -1,4 +1,4 @@
-use std::ops::RangeInclusive;
+use std::{cmp::Reverse, ops::RangeInclusive};
 
 use egui::{Color32, RichText, Ui, Window};
 use egui_plot::{AxisHints, GridInput, GridMark, Legend, Line, Plot, PlotPoint};
@@ -37,10 +37,29 @@ enum Error {
 }
 
 impl SingleReport {
+    pub fn name(&self) -> String {
+        let date = self.report.metadata.date;
+        let month = match date.month() {
+            Month::January => "Janvier",
+            Month::February => "Février",
+            Month::March => "Mars",
+            Month::April => "Avril",
+            Month::May => "Mai",
+            Month::June => "Juin",
+            Month::July => "Juillet",
+            Month::August => "Aout",
+            Month::September => "Septembre",
+            Month::October => "Octobre",
+            Month::November => "Novembre",
+            Month::December => "Décembre",
+        };
+        format!("{} - {month}", date.year())
+    }
+
     pub fn ui(&mut self, ctx: &egui::Context) {
         if self.selected {
             let mut still_opened = true;
-            Window::new(self.report.metadata.date.to_string())
+            Window::new(self.name())
                 .default_width(800.0)
                 .default_height(500.0)
                 .open(&mut still_opened)
@@ -436,24 +455,22 @@ impl MeteoApp {
                 })
             }
         }
+        reports.sort_unstable_by_key(|report| Reverse(report.report.metadata.date));
+        reports.dedup_by_key(|report| report.report.metadata.date);
+
         MeteoApp { reports }
     }
 
     pub fn ui(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::SidePanel::right("right_panel").show(ctx, |ui| {
-            egui::ScrollArea::both()
-                .drag_to_scroll(false)
-                .show(ui, |ui| {
-                    for report in self.reports.iter_mut() {
-                        ui.horizontal(|ui| {
-                            ui.toggle_value(
-                                &mut report.selected,
-                                &report.report.metadata.date.to_string(),
-                            );
-                            ui.separator();
-                        });
-                    }
-                });
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                for report in self.reports.iter_mut() {
+                    ui.horizontal(|ui| {
+                        let name = report.name();
+                        ui.toggle_value(&mut report.selected, name);
+                    });
+                }
+            });
         });
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
