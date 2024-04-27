@@ -1,3 +1,5 @@
+workspace = { members = ["prepare-data"] }
+
 [package]
 name = "meteo_egui"
 version = "0.1.0"
