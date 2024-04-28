@@ -2,12 +2,22 @@ use std::cmp::Reverse;
 
 use include_dir::{include_dir, Dir};
 
-use crate::{inspect::InspectReports, report::Report};
+use crate::{dashboard::Dashboard, inspect::InspectReports, report::Report};
 
 #[derive(Clone)]
 pub struct MeteoApp {
     reports: Vec<Report>,
+
+    viewing: View,
+    dashboard: Dashboard,
     inspect_view: InspectReports,
+}
+
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
+enum View {
+    #[default]
+    Dashboard,
+    Inspect,
 }
 
 static REPORTS_DIR: Dir<'static> = include_dir!("assets/reports/raw");
@@ -19,7 +29,7 @@ impl MeteoApp {
         for entry in dir.entries() {
             if let Some(file) = entry.as_file() {
                 let original = file.contents_utf8().unwrap().to_string();
-                reports.push(Report::new(original))
+                reports.push(Report::original(original))
             }
         }
         reports.sort_unstable_by_key(|report| Reverse(report.report.metadata.date));
@@ -27,6 +37,8 @@ impl MeteoApp {
 
         MeteoApp {
             inspect_view: InspectReports::new(&reports),
+            dashboard: Dashboard::new(&reports),
+            viewing: View::default(),
             reports,
         }
     }
@@ -46,11 +58,16 @@ impl MeteoApp {
                     });
                     ui.add_space(16.0);
                 }
+                ui.selectable_value(&mut self.viewing, View::Dashboard, "Tableau de bord");
+                ui.selectable_value(&mut self.viewing, View::Inspect, "Inspecter");
 
                 egui::widgets::global_dark_light_mode_buttons(ui);
             });
         });
-        self.inspect_view.ui(&self.reports, ctx);
+        match self.viewing {
+            View::Dashboard => self.dashboard.ui(ctx),
+            View::Inspect => self.inspect_view.ui(&self.reports, ctx),
+        }
     }
 }
 
