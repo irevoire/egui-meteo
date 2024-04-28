@@ -59,7 +59,11 @@ impl MeteoApp {
                     ui.add_space(16.0);
                 }
                 ui.selectable_value(&mut self.viewing, View::Dashboard, "Tableau de bord");
-                ui.selectable_value(&mut self.viewing, View::Inspect, "Inspecter");
+                ui.selectable_value(
+                    &mut self.viewing,
+                    View::Inspect,
+                    "Inspecter les rapports individuel",
+                );
 
                 egui::widgets::global_dark_light_mode_buttons(ui);
             });
