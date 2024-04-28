@@ -18,7 +18,6 @@ async fn main() {
         .select(&selector)
         .filter_map(|el| el.attr("value").map(|attr| (el.inner_html(), attr))) // skip everything that doesn't contains a value
         .filter(|(_name, url)| !url.is_empty()) // skip the empty values
-        .filter(|(_name, url)| !url.contains("NOAA")) // skip the NOAA stuff, it's the last two months
         .map(|(name, url)| (name, format!("{base_url}{url}")))
         .collect();
 
@@ -49,7 +48,8 @@ async fn main() {
 async fn handle_report(reports: Vec<PathBuf>, name: String, url: String) -> Option<Report> {
     let filename = PathBuf::from(sanitize(&name));
     let path = PathBuf::from("../assets/reports/raw/").join(filename);
-    if reports.contains(&path) {
+    // We **always** wants to update the last two reports
+    if !url.contains("NOAA") && reports.contains(&path) {
         return None;
     }
     println!("Downloading the report {name}");
