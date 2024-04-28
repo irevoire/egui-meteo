@@ -1,5 +1,6 @@
 use std::cmp::Reverse;
 
+use egui::Layout;
 use include_dir::{include_dir, Dir};
 
 use crate::{dashboard::Dashboard, inspect::InspectReports, report::Report};
@@ -45,8 +46,6 @@ impl MeteoApp {
 
     pub fn ui(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            // The top panel is often a good place for a menu bar:
-
             egui::menu::bar(ui, |ui| {
                 // NOTE: no File->Quit on web pages!
                 let is_web = cfg!(target_arch = "wasm32");
@@ -65,7 +64,9 @@ impl MeteoApp {
                     "Inspecter les rapports individuel",
                 );
 
-                egui::widgets::global_dark_light_mode_buttons(ui);
+                ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                    egui::widgets::global_dark_light_mode_buttons(ui);
+                });
             });
         });
         match self.viewing {
