@@ -74,15 +74,41 @@ impl MeteoApp {
                 ui.set_max_width(500.);
 
                 ui.horizontal_wrapped(|ui| {
+                    // Trick so we don't have to add spaces in the text below:
+                    let width = ui.fonts(|f|f.glyph_width(&egui::TextStyle::Body.resolve(ui.style()), ' '));
+                    ui.spacing_mut().item_spacing.x = width;
+
+                    let now = time::OffsetDateTime::now_utc();
+
                     ui.label("Salut, je m'appelle");
                     ui.label(RichText::new("Thomas Campistron").strong());
                     ui.label(", ou juste");
                     ui.label(RichText::new("Tamo").strong());
-                    ui.label("sur internet. Je suis développeur pour");
+                    ui.label("sur internet. J'ai");
+
+                    let birthdate = time::OffsetDateTime::new_utc(time::Date::from_calendar_date(1996, time::Month::November, 21).unwrap(), time::Time::from_hms(0, 0, 0).unwrap());
+                    let alive_since = now - birthdate;
+                    let years = alive_since.whole_days() / 365;
+                    ui.label(years.to_string()).on_hover_ui(|ui| {ui.label(RichText::new("C'est jeune").small());});
+
+                    ui.label("ans et je suis développeur pour");
                     ui.hyperlink_to("Meilisearch", "https://meilisearch.com");
                     ui.label("en télétravail. J'habite");
                     ui.hyperlink_to("au Vigan", "https://fr.wikipedia.org/wiki/Le_Vigan_(Gard)");
-                    ui.label("et j'ai fais ce site après avoir découvert que le lycée de ma ville collectée les données météorologique depuis 2006.");
+
+                    let now = time::OffsetDateTime::now_utc();
+                    let moved = time::OffsetDateTime::new_utc(time::Date::from_calendar_date(2023, time::Month::June, 8).unwrap(), time::Time::from_hms(0, 0, 0).unwrap());
+                    let elapsed = now - moved;
+                    let years = elapsed.whole_days() / 365;
+                    let months = (elapsed.whole_days() % 365) / 30;
+
+                    match years {
+                        0 => ui.label(format!("depuis {months} mois")),
+                        1 => ui.label(format!("depuis {years} an et {months} mois")),
+                        _ => ui.label(format!("depuis {years} ans")),
+                    };
+
+                    ui.label("et j'ai fais ce site après avoir découvert que le lycée à côté de chez moi collecte des données météorologique depuis 2006.");
                     ui.label("Toutes les données affichée sur mon site viennent en réalité de :");
                     ui.hyperlink("http://meteo.lyc-chamson-levigan.ac-montpellier.fr/meteo/index.php?page=releve");
                     ui.label("Elles sont mises à jour tous les jours à 2h du matin.");
