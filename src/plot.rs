@@ -163,11 +163,11 @@ pub fn create_plot_time(name: &str, formatter: impl Fn(f64) -> String + 'static)
         let step = date_from_chart(mark.step_size).unwrap();
         let step = step - OffsetDateTime::from_unix_timestamp(0).unwrap();
         let days = step.whole_days();
-        let format = if days > 365 * 3 {
+        let format = if days > 364 {
             format_description!("[year]")
-        } else if days > 30 * 3 {
+        } else if days > 29 {
             format_description!("[month]/[year]")
-        } else if days > 3 {
+        } else if days > 0 {
             format_description!("[day]/[month]/[year]")
         } else {
             format_description!("[day]/[month]/[year] - [hour]:[minute]")
