@@ -1,6 +1,6 @@
 use std::cmp::Reverse;
 
-use egui::Layout;
+use egui::{Layout, RichText};
 use include_dir::{include_dir, Dir};
 
 use crate::{dashboard::Dashboard, inspect::InspectReports, report::Report};
@@ -19,6 +19,7 @@ enum View {
     #[default]
     Dashboard,
     Inspect,
+    About,
 }
 
 static REPORTS_DIR: Dir<'static> = include_dir!("assets/reports/raw");
@@ -47,17 +48,7 @@ impl MeteoApp {
     pub fn ui(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
-                // NOTE: no File->Quit on web pages!
-                let is_web = cfg!(target_arch = "wasm32");
-                if !is_web {
-                    ui.menu_button("File", |ui| {
-                        if ui.button("Quit").clicked() {
-                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                        }
-                    });
-                    ui.add_space(16.0);
-                }
-                ui.selectable_value(&mut self.viewing, View::Dashboard, "Tableau de bord");
+                ui.selectable_value(&mut self.viewing, View::Dashboard, "Vue globale");
                 ui.selectable_value(
                     &mut self.viewing,
                     View::Inspect,
@@ -66,13 +57,45 @@ impl MeteoApp {
 
                 ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                     egui::widgets::global_dark_light_mode_buttons(ui);
+                    ui.selectable_value(&mut self.viewing, View::About, "À propos");
                 });
             });
         });
         match self.viewing {
             View::Dashboard => self.dashboard.ui(ctx),
             View::Inspect => self.inspect_view.ui(&self.reports, ctx),
+            View::About => self.about(ctx),
         }
+    }
+
+    fn about(&self, ctx: &egui::Context) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.set_max_width(500.);
+
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("Salut, je m'appelle");
+                    ui.label(RichText::new("Thomas Campistron").strong());
+                    ui.label(", ou juste");
+                    ui.label(RichText::new("Tamo").strong());
+                    ui.label("sur internet. Je suis développeur pour");
+                    ui.hyperlink_to("Meilisearch", "https://meilisearch.com");
+                    ui.label("en télétravail. J'habite");
+                    ui.hyperlink_to("au Vigan", "https://fr.wikipedia.org/wiki/Le_Vigan_(Gard)");
+                    ui.label("et j'ai fais ce site après avoir découvert que le lycée de ma ville collectée les données météorologique depuis 2006.");
+                    ui.label("Toutes les données affichée sur mon site viennent en réalité de :");
+                    ui.hyperlink("http://meteo.lyc-chamson-levigan.ac-montpellier.fr/meteo/index.php?page=releve");
+                    ui.label("Elles sont mises à jour tous les jours à 2h du matin.");
+                });
+
+                ui.add_space(20.);
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("L'intégralité du code qui génère ce site web est disponible");
+                    ui.hyperlink_to("ici", "https://github.com/irevoire/egui-meteo");
+                    ui.label("où vous pouvez m'y faire des suggestions via les « issues ».");
+                });
+            });
+        });
     }
 }
 
