@@ -36,29 +36,40 @@ impl InspectReports {
                 })
                 .collect();
 
+            let mut select_all = false;
+            let mut close_all = false;
+
             ui.vertical(|ui| {
                 ui.text_edit_singleline(&mut self.filter);
                 ui.label(format!("Total: {}", reports.len()));
                 if !self.filter.is_empty() {
                     ui.label(format!("Après filtre: {}", to_display.len()));
                 }
+                if ui.button("Tout sélectionner").clicked() {
+                    select_all = true;
+                }
+                if ui.button("Tout fermer").clicked() {
+                    close_all = true;
+                }
 
                 ui.separator();
             });
             egui::ScrollArea::vertical().show(ui, |ui| {
                 for (parameter, report) in to_display {
-                    if self.filter.is_empty()
-                        || report
-                            .name()
-                            .to_lowercase()
-                            .contains(&self.filter.to_lowercase())
-                    {
-                        ui.horizontal(|ui| {
-                            ui.toggle_value(&mut parameter.selected, report.name());
-                        });
+                    if select_all {
+                        parameter.selected = true;
                     }
+                    ui.horizontal(|ui| {
+                        ui.toggle_value(&mut parameter.selected, report.name());
+                    });
                 }
             });
+
+            if close_all {
+                for parameter in self.parameters.iter_mut() {
+                    parameter.selected = false;
+                }
+            }
         });
 
         egui::CentralPanel::default().show(ctx, |_ui| {
