@@ -108,8 +108,8 @@ impl MeteoApp {
                         _ => ui.label(format!("depuis {years} ans")),
                     };
 
-                    ui.label("et j'ai fais ce site après avoir découvert que le lycée à côté de chez moi collecte des données météorologique depuis 2006.");
-                    ui.label("Toutes les données affichée sur mon site viennent en réalité de :");
+                    ui.label("et j'ai fait ce site après avoir découvert que le lycée à côté de chez moi collecte des données météorologiques depuis 2006.");
+                    ui.label("Toutes les données affichées sur mon site viennent en réalité de :");
                     ui.hyperlink("http://meteo.lyc-chamson-levigan.ac-montpellier.fr/meteo/index.php?page=releve");
                     ui.label("Elles sont mises à jour tous les jours à 2h du matin.");
                 });
