@@ -1,0 +1,26 @@
+name: Update the reports with the latest datas
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 2 * * *" # Every days at 2AM
+
+jobs:
+  update-reports:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+    - name: Download and update the reports
+      run: cargo run -p prepare-data
+    - name: Commit & push the new reports
+      run: |
+        git config --global user.name "kefir"
+        git config --global user.email "kefir@users.noreply.github.com"
+        git add assets/reports
+        git commit -m "Update reports"
+        git push
+

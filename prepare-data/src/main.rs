@@ -24,7 +24,7 @@ async fn main() {
     println!("Downloading all the reports");
 
     let mut reports = Vec::new();
-    let mut read_dir = tokio::fs::read_dir("../assets/reports/raw").await.unwrap();
+    let mut read_dir = tokio::fs::read_dir("assets/reports/raw").await.unwrap();
     while let Some(dir) = read_dir.next_entry().await.unwrap() {
         reports.push(dir.path());
     }
@@ -47,7 +47,7 @@ async fn main() {
 
 async fn handle_report(reports: Vec<PathBuf>, name: String, url: String) -> Option<Report> {
     let filename = PathBuf::from(sanitize(&name));
-    let path = PathBuf::from("../assets/reports/raw/").join(filename);
+    let path = PathBuf::from("assets/reports/raw/").join(filename);
     // We **always** wants to update the last two reports
     if !url.contains("NOAA") && reports.contains(&path) {
         return None;
