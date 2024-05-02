@@ -5,6 +5,9 @@ on:
   schedule:
     - cron: "0 2 * * *" # Every days at 2AM
 
+permissions:
+  contents: write
+
 jobs:
   update-reports:
     runs-on: ubuntu-latest
