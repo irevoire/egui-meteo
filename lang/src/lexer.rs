@@ -1,8 +1,20 @@
 use logos::Logos;
+use std::num::ParseFloatError;
+
+#[derive(Clone, Debug, Default, thiserror::Error, PartialEq, Eq)]
+enum LexingError {
+    #[default]
+    #[error("Other")]
+    Other,
+
+    #[error(transparent)]
+    NumberError(#[from] ParseFloatError),
+}
 
 #[derive(Logos, Debug, PartialEq)]
+#[logos(error = LexingError)]
 #[logos(skip r"[ \t\n\f]+")] // Ignore this regex pattern between tokens
-enum Token {
+enum Token<'a> {
     // First class operators
     #[token("|>")]
     RightTriangle,
@@ -37,10 +49,11 @@ enum Token {
     #[token("\"")]
     DoubleQuote,
 
-    #[regex(r"[a-zA-Z_]+[a-zA-Z0-9]*")]
-    Ident,
-    #[regex(r"[0-9]+(\.[0-9]+)*")]
-    Number,
+    #[regex(r"[a-zA-Z_]+[a-zA-Z0-9]*", |lex| lex.slice())]
+    Ident(&'a str),
+    // We parse too many `.123` on purpose to return the right error message on float with three or more `.`
+    #[regex("-?[0-9]+(\\.[0-9]+)*", |lex| lex.slice().parse())]
+    Number(f64),
 }
 
 #[cfg(test)]
@@ -62,19 +75,18 @@ mod test {
         ] {
             let mut lex = Token::lexer(ident);
 
-            assert_eq!(lex.next(), Some(Ok(Token::Ident)));
+            assert_eq!(lex.next(), Some(Ok(Token::Ident(lex.slice()))));
             assert!(ident.starts_with(lex.slice()));
         }
     }
 
     #[test]
     fn number() {
-        for ident in ["0", "123456789", "123.123"] {
+        for (ident, ret) in [("0", 0.0), ("123456789", 123456789.0), ("123.123", 123.123)] {
             let mut lex = Token::lexer(ident);
 
-            assert_eq!(
-                lex.next(),
-                Some(Ok(Token::Number)),
+            assert!(
+                matches!(lex.next(), Some(Ok(Token::Number(n))) if n == ret),
                 "error on {}",
                 lex.slice()
             );
