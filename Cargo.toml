@@ -1,4 +1,4 @@
-workspace = { members = ["prepare-data"] }
+workspace = { members = [ "lang","prepare-data"] }
 
 [package]
 name = "meteo_egui"
