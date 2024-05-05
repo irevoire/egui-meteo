@@ -2,7 +2,7 @@ use logos::Logos;
 use std::num::ParseFloatError;
 
 #[derive(Clone, Debug, Default, thiserror::Error, PartialEq, Eq)]
-enum LexingError {
+pub enum LexingError {
     #[default]
     #[error("Other")]
     Other,
@@ -14,7 +14,7 @@ enum LexingError {
 #[derive(Logos, Debug, PartialEq)]
 #[logos(error = LexingError)]
 #[logos(skip r"[ \t\n\f]+")] // Ignore this regex pattern between tokens
-enum Token<'a> {
+pub enum Token<'a> {
     // First class operators
     #[token("|>")]
     RightTriangle,
@@ -36,6 +36,18 @@ enum Token<'a> {
     LogicalOr,
     #[token("&&")]
     LogicalAnd,
+
+    // Unary/Binary operators
+    #[token("-")]
+    Minus,
+    #[token("+")]
+    Plus,
+    #[token("/")]
+    Slash,
+    #[token("*")]
+    Star,
+    #[token("!")]
+    Bang,
 
     // Parens
     #[token("(")]

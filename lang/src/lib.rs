@@ -1,4 +1,5 @@
-mod lexer;
+pub(crate) mod lexer;
+pub(crate) mod parser;
 
 use miette::{Diagnostic, SourceSpan};
 
