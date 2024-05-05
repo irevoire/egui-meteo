@@ -9,3 +9,6 @@ edition = "2021"
 logos = "0.14.0"
 miette = "7.2.0"
 thiserror = "1.0.59"
+
+[dev-dependencies]
+insta = "1.38.0"

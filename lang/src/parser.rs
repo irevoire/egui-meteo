@@ -14,7 +14,7 @@ use logos::{Lexer, Logos, Span};
 
 use crate::lexer::{LexingError, Token};
 
-#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[derive(Debug, Clone, thiserror::Error, miette::Diagnostic)]
 pub enum Error {
     #[error(transparent)]
     Lexer(#[from] LexingError),
@@ -50,7 +50,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_expression(&mut self) -> Result<Expression> {
-        todo!()
+        self.parse_primary()
     }
 
     pub fn parse_primary(&mut self) -> Result<Expression> {
@@ -60,12 +60,16 @@ impl<'a> Parser<'a> {
             Token::LeftParens => {
                 let left = self.lexer.span();
                 let expr = self.parse_expression()?;
-                let next = self.lexer.next().ok_or(Error::primary("EoF"))??;
+                let next = self.lexer.next();
+
+                let error = Error::MissingParens {
+                    left: left.clone(),
+                    right: self.lexer.span(),
+                };
+
+                let next = next.ok_or(error.clone())??;
                 if next != Token::RightParens {
-                    return Err(Error::MissingParens {
-                        left,
-                        right: self.lexer.span(),
-                    });
+                    return Err(error);
                 };
 
                 Ok(Expression::Group {
@@ -174,7 +178,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn unit() {
+    fn test_literal() {
         for (input, ret) in [
             ("data", Literal::String(0.."data".len())),
             ("Date(", Literal::String(0.."Date".len())),
@@ -190,5 +194,13 @@ mod test {
             let lit = parser.parse_primary().unwrap().unwrap_literal();
             assert_eq!(lit, ret);
         }
+    }
+
+    #[test]
+    fn error_mismatch_parens() {
+        let input = "(1";
+        let mut parser = Parser::new(input);
+        let error = parser.parse_primary().unwrap_err();
+        insta::assert_snapshot!(error, @"Missing closing parenthesis");
     }
 }
