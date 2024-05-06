@@ -1,6 +1,8 @@
 pub(crate) mod lexer;
 pub(crate) mod parser;
 
+pub use parser::Parser;
+
 use miette::{Diagnostic, SourceSpan};
 
 #[derive(Diagnostic, Debug, thiserror::Error)]

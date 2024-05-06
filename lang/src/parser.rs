@@ -11,11 +11,23 @@ data
 use std::borrow::Cow;
 
 use logos::{Lexer, Logos, Span};
+use miette::SourceSpan;
 
 use crate::lexer::{LexingError, Token};
 
 #[derive(Debug, Clone, thiserror::Error, miette::Diagnostic)]
-pub enum Error {
+#[error("{kind}")]
+#[diagnostic(help("try doing this instead"))]
+pub struct Error {
+    #[source_code]
+    src: String,
+
+    #[diagnostic_source]
+    kind: ErrorKind,
+}
+
+#[derive(Debug, Clone, thiserror::Error, miette::Diagnostic)]
+pub enum ErrorKind {
     #[error(transparent)]
     Lexer(#[from] LexingError),
 
@@ -25,28 +37,37 @@ pub enum Error {
     #[error("Missing closing parenthesis")]
     MissingParens {
         #[label("Opening parenthesis")]
-        left: Span,
+        left: SourceSpan,
         #[label("Missing parenthesis")]
-        right: Span,
+        right: SourceSpan,
     },
-}
-
-impl Error {
-    pub fn primary(s: impl Into<Cow<'static, str>>) -> Self {
-        Self::ExpectedPrimary(s.into())
-    }
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
 pub struct Parser<'a> {
+    source: &'a str,
     lexer: Lexer<'a, Token<'a>>,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(input: &'a str) -> Self {
         let lexer = Token::lexer(input);
-        Parser { lexer }
+        Parser {
+            source: input,
+            lexer,
+        }
+    }
+
+    pub fn primary_error(&self, s: impl Into<Cow<'static, str>>) -> Error {
+        self.error(ErrorKind::ExpectedPrimary(s.into()))
+    }
+
+    pub fn error(&self, kind: ErrorKind) -> Error {
+        Error {
+            src: self.source.into(),
+            kind,
+        }
     }
 
     pub fn parse_expression(&mut self) -> Result<Expression> {
@@ -54,7 +75,12 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_primary(&mut self) -> Result<Expression> {
-        match self.lexer.next().ok_or(Error::primary("EoF"))?? {
+        match self
+            .lexer
+            .next()
+            .ok_or_else(|| self.primary_error("EoF"))?
+            .map_err(|err| self.primary_error(err.to_string()))?
+        {
             Token::Ident(_) => Ok(Expression::Primary(Literal::String(self.lexer.span()))),
             Token::Number(n) => Ok(Expression::Primary(Literal::Number(self.lexer.span(), n))),
             Token::LeftParens => {
@@ -62,12 +88,13 @@ impl<'a> Parser<'a> {
                 let expr = self.parse_expression()?;
                 let next = self.lexer.next();
 
-                let error = Error::MissingParens {
-                    left: left.clone(),
-                    right: self.lexer.span(),
-                };
+                let right = self.lexer.span();
+                let error = self.error(ErrorKind::MissingParens {
+                    left: SourceSpan::new(left.start.into(), left.end - left.start),
+                    right: SourceSpan::new(right.start.into(), right.end - right.start),
+                });
 
-                let next = next.ok_or(error.clone())??;
+                let next = next.ok_or(error.clone())?.map_err(|_| error.clone())?;
                 if next != Token::RightParens {
                     return Err(error);
                 };
@@ -78,11 +105,7 @@ impl<'a> Parser<'a> {
                     closing_paren: self.lexer.span(),
                 })
             }
-            other => Err(Error::primary(format!(
-                "{:?}: `{}`",
-                other,
-                self.lexer.slice()
-            ))),
+            other => Err(self.primary_error(format!("{:?}: `{}`", other, self.lexer.slice()))),
         }
     }
 }
@@ -175,6 +198,8 @@ pub struct Function {
 
 #[cfg(test)]
 mod test {
+    use miette::IntoDiagnostic;
+
     use super::*;
 
     #[test]
@@ -198,9 +223,22 @@ mod test {
 
     #[test]
     fn error_mismatch_parens() {
+        miette::set_hook(Box::new(|_| {
+            Box::new(
+                miette::MietteHandlerOpts::new()
+                    .context_lines(2)
+                    .color(false)
+                    .build(),
+            )
+        }))
+        .unwrap();
+
         let input = "(1";
         let mut parser = Parser::new(input);
-        let error = parser.parse_primary().unwrap_err();
-        insta::assert_snapshot!(error, @"Missing closing parenthesis");
+        let error = parser.parse_primary().into_diagnostic().unwrap_err();
+        let error = format!("{error:?}");
+        insta::assert_snapshot!(error, @r###"
+          × Missing closing parenthesis
+        "###);
     }
 }
