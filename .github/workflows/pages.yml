@@ -5,6 +5,10 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+  schedule:
+    - cron: "0 2 30 * *" # Every days at 2AM30
+    
 # to only run when you do a new github release, comment out above part and uncomment the below trigger.
 # on:
 #   release:
