@@ -10,7 +10,7 @@ ELEV:   245 m  LAT:  43° 59' 23" N  LONG:   3° 36' 04" E
 DAY TEMP  HIGH   TIME   LOW    TIME   DAYS  DAYS  RAIN  SPEED HIGH   TIME    DIR
 ------------------------------------------------------------------------------------
  1  29.3  37.7   15:00  19.9    7:30   0.0  11.0   0.0   3.1  30.6   14:00   WNW
- 2
+ 2  28.2  36.8   16:30  21.6    7:00   0.0   9.9   1.6   2.7  37.0   21:00   SSE
  3
  4
  5
@@ -41,12 +41,12 @@ DAY TEMP  HIGH   TIME   LOW    TIME   DAYS  DAYS  RAIN  SPEED HIGH   TIME    DIR
 30
 31
 -------------------------------------------------------------------------------------
-    29.3  37.7     1    19.9     1     0.0  11.0   0.0   3.1  30.6     1     WNW
+    28.8  37.7     1    19.9     1     0.0  20.9   1.6   2.9  37.0     2      NW
 
-Max >=  32.0:  1
+Max >=  32.0:  2
 Max <=   0.0:  0
 Min <=   0.0:  0
 Min <= -18.0:  0
-Max Rain: 0.00 ON 01/08/24
-Days of Rain: 0 (> .2 mm) 0 (> 2 mm) 0 (> 20 mm)
+Max Rain: 1.60 ON 02/08/24
+Days of Rain: 1 (> .2 mm) 0 (> 2 mm) 0 (> 20 mm)
 Heat Base:  18.3  Cool Base:  18.3  Method: Integration
