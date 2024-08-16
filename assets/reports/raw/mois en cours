@@ -23,7 +23,7 @@ DAY TEMP  HIGH   TIME   LOW    TIME   DAYS  DAYS  RAIN  SPEED HIGH   TIME    DIR
 12  26.1  34.5   17:00  17.2    7:00   0.1   7.9   0.0   1.9  25.7   15:00   SSE
 13  23.8  35.4   15:00  16.2    7:00   0.3   5.8   3.2   2.4  48.3   18:30   SSE
 14  22.1  29.8   14:00  17.9    5:30   0.0   3.8   2.2   1.0  43.5   15:00     S
-15
+15  22.2  32.2   16:30  17.2    7:30   0.1   4.0  14.6   1.8  40.2   17:00   SSE
 16
 17
 18
@@ -41,12 +41,12 @@ DAY TEMP  HIGH   TIME   LOW    TIME   DAYS  DAYS  RAIN  SPEED HIGH   TIME    DIR
 30
 31
 -------------------------------------------------------------------------------------
-    26.6  38.0     9    15.7     9     1.0 116.9   9.2   2.5  48.3    13     SSE
+    26.3  38.0     9    15.7     9     1.1 120.8  23.8   2.5  48.3    13     SSE
 
-Max >=  32.0: 13
+Max >=  32.0: 14
 Max <=   0.0:  0
 Min <=   0.0:  0
 Min <= -18.0:  0
-Max Rain: 3.20 ON 13/08/24
-Days of Rain: 4 (> .2 mm) 3 (> 2 mm) 0 (> 20 mm)
+Max Rain: 14.60 ON 15/08/24
+Days of Rain: 5 (> .2 mm) 4 (> 2 mm) 0 (> 20 mm)
 Heat Base:  18.3  Cool Base:  18.3  Method: Integration
