@@ -89,7 +89,7 @@ impl DisplayReport {
     pub fn temperature(&mut self, report: &Report, ui: &mut Ui) {
         let report = &report.report;
         let plot = create_plot_time("Temperature", |degree| format!("{degree:.2}°C"))
-            .link_axis(ui.id(), true, false)
+            .link_axis(ui.id(), [true, false])
             .custom_y_axes(vec![AxisHints::new_y().label("Temperature en °C")]);
         plot.show(ui, |ui| {
             // gather all data
@@ -146,7 +146,7 @@ impl DisplayReport {
     pub fn rain(&mut self, report: &Report, ui: &mut Ui) {
         let report = &report.report;
         let plot = create_plot_time("Pluie", |rain| format!("{rain:.2}mm"))
-            .link_axis(ui.id(), true, false)
+            .link_axis(ui.id(), [true, false])
             .custom_y_axes(vec![AxisHints::new_y().label("Pluie en mm/m²")]);
         plot.show(ui, |ui| {
             // gather all data
@@ -169,7 +169,7 @@ impl DisplayReport {
     pub fn wind(&mut self, report: &Report, ui: &mut Ui) {
         let report = &report.report;
         let plot = create_plot_time("Vent", |wind| format!("{wind:.2}km/h"))
-            .link_axis(ui.id(), true, false)
+            .link_axis(ui.id(), [true, false])
             .custom_y_axes(vec![AxisHints::new_y().label("Vent en km/h")]);
         plot.show(ui, |ui| {
             let mean_wind: Vec<_> = report

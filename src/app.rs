@@ -56,7 +56,7 @@ impl MeteoApp {
                 );
 
                 ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                    egui::widgets::global_dark_light_mode_buttons(ui);
+                    egui::widgets::global_theme_preference_buttons(ui);
                     ui.selectable_value(&mut self.viewing, View::About, "À propos");
                 });
             });
@@ -122,6 +122,12 @@ impl MeteoApp {
                 });
             });
         });
+    }
+}
+
+impl Default for MeteoApp {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

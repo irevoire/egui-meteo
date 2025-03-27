@@ -159,7 +159,7 @@ fn x_grid(input: GridInput) -> Vec<GridMark> {
 }
 
 pub fn create_plot_time(name: &str, formatter: impl Fn(f64) -> String + 'static) -> Plot {
-    let time_formatter = |mark: GridMark, _digits, _range: &RangeInclusive<f64>| {
+    let time_formatter = |mark: GridMark, _range: &RangeInclusive<f64>| {
         let step = date_from_chart(mark.step_size).unwrap();
         let step = step - OffsetDateTime::from_unix_timestamp(0).unwrap();
         let days = step.whole_days();
