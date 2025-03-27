@@ -6,12 +6,13 @@ use time::{macros::format_description, Date, Duration, Month, OffsetDateTime, Ti
 use crate::{date_from_chart, date_to_chart};
 
 fn x_grid(input: GridInput) -> Vec<GridMark> {
+    let min_time = OffsetDateTime::from_unix_timestamp(-377705116800).unwrap();
     let null_time = OffsetDateTime::from_unix_timestamp(0).unwrap();
     let max_time = OffsetDateTime::from_unix_timestamp(253402300799).unwrap();
 
     let (start, end) = input.bounds;
     let (start, end) = (
-        date_from_chart(start).unwrap_or(null_time),
+        date_from_chart(start).unwrap_or(min_time),
         date_from_chart(end).unwrap_or(max_time),
     );
 
@@ -19,10 +20,12 @@ fn x_grid(input: GridInput) -> Vec<GridMark> {
 
     let mut marks = vec![];
 
-    let decade_step_size = date_to_chart(null_time + Duration::days(365 * 10));
-    for year in [1990, 2000, 2010, 2020, 2030] {
+    let decade_step_size = date_to_chart(null_time + Duration::days(365 * 12));
+    for decade in start.year() / 10..=end.year() / 10 {
+        let decade = decade * 10;
+
         let date = OffsetDateTime::new_utc(
-            Date::from_ordinal_date(year, 1).unwrap(),
+            Date::from_ordinal_date(decade, 1).unwrap(),
             Time::from_hms(0, 0, 0).unwrap(),
         );
         if (start..end).contains(&date) {
