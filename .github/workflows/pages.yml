@@ -2,18 +2,12 @@ name: Github Pages
 
 # By default, runs if you push to main. keeps your deployed app in sync with main branch.
 on:
+  schedule:
+    - cron: "30 2 * * *" # Every days at 2AM30
   push:
     branches:
       - main
   workflow_dispatch:
-  schedule:
-    - cron: "0 2 30 * *" # Every days at 2AM30
-    
-# to only run when you do a new github release, comment out above part and uncomment the below trigger.
-# on:
-#   release:
-#     types:
-#       - published
 
 permissions:
   contents: write # for committing to gh-pages branch.
