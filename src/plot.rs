@@ -20,6 +20,7 @@ fn x_grid(input: GridInput) -> Vec<GridMark> {
 
     let mut marks = vec![];
 
+    /*
     let decade_step_size = date_to_chart(null_time + Duration::days(365 * 12));
     for decade in start.year() / 10..=end.year() / 10 {
         let decade = decade * 10;
@@ -35,6 +36,7 @@ fn x_grid(input: GridInput) -> Vec<GridMark> {
             });
         }
     }
+    */
     let year_step_size = date_to_chart(null_time + Duration::days(365));
     let month_step_size = date_to_chart(null_time + Duration::DAY * 30);
     let day_step_size = date_to_chart(null_time + Duration::DAY);
@@ -47,14 +49,14 @@ fn x_grid(input: GridInput) -> Vec<GridMark> {
             Date::from_ordinal_date(year, 1).unwrap(),
             Time::from_hms(0, 0, 0).unwrap(),
         );
-        if (start..end).contains(&date) {
-            marks.push(GridMark {
-                value: date_to_chart(date),
-                step_size: year_step_size,
-            });
-        }
         // Early exit if there is too many months to display
-        if duration.whole_days() > 720 {
+        if duration.whole_days() > 365 * 3 {
+            if (start..end).contains(&date) {
+                marks.push(GridMark {
+                    value: date_to_chart(date),
+                    step_size: year_step_size,
+                });
+            }
             continue;
         }
         // Second, prepare the range for the month
@@ -71,13 +73,13 @@ fn x_grid(input: GridInput) -> Vec<GridMark> {
         for month in s..=e {
             let month = Month::try_from(month).unwrap();
             let date = date.replace_month(month).unwrap();
-            if (start..end).contains(&date) {
-                marks.push(GridMark {
-                    value: date_to_chart(date),
-                    step_size: month_step_size,
-                });
-            }
-            if duration.whole_days() > 120 {
+            if duration.whole_days() > 30 * 3 {
+                if (start..end).contains(&date) {
+                    marks.push(GridMark {
+                        value: date_to_chart(date),
+                        step_size: month_step_size,
+                    });
+                }
                 continue;
             }
             let s = if year == start.year() && month == start.month() {
@@ -95,13 +97,13 @@ fn x_grid(input: GridInput) -> Vec<GridMark> {
                     Ok(date) => date,
                     Err(_) => continue,
                 };
-                if (start..end).contains(&date) {
-                    marks.push(GridMark {
-                        value: date_to_chart(date),
-                        step_size: day_step_size,
-                    });
-                }
                 if duration.whole_hours() > 48 {
+                    if (start..end).contains(&date) {
+                        marks.push(GridMark {
+                            value: date_to_chart(date),
+                            step_size: day_step_size,
+                        });
+                    }
                     continue;
                 }
                 let s = if year == start.year() && month == start.month() && day == start.day() {
@@ -117,13 +119,13 @@ fn x_grid(input: GridInput) -> Vec<GridMark> {
 
                 for hour in s..=e {
                     let date = date.replace_hour(hour).unwrap();
-                    if (start..end).contains(&date) {
-                        marks.push(GridMark {
-                            value: date_to_chart(date),
-                            step_size: hour_step_size,
-                        });
-                    }
                     if duration.whole_minutes() > 120 {
+                        if (start..end).contains(&date) {
+                            marks.push(GridMark {
+                                value: date_to_chart(date),
+                                step_size: hour_step_size,
+                            });
+                        }
                         continue;
                     }
                     let s = if year == start.year()
