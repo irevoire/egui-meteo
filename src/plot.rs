@@ -21,23 +21,6 @@ fn x_grid(input: GridInput) -> Vec<GridMark> {
 
     let mut marks = vec![];
 
-    /*
-    let decade_step_size = date_to_chart(null_time + Duration::days(365 * 12));
-    for decade in start.year() / 10..=end.year() / 10 {
-        let decade = decade * 10;
-
-        let date = OffsetDateTime::new_utc(
-            Date::from_ordinal_date(decade, 1).unwrap(),
-            Time::from_hms(0, 0, 0).unwrap(),
-        );
-        if (start..end).contains(&date) {
-            marks.push(GridMark {
-                value: date_to_chart(date),
-                step_size: decade_step_size,
-            });
-        }
-    }
-    */
     let year_step_size = date_to_chart(null_time + Duration::days(365));
     let month_step_size = date_to_chart(null_time + Duration::DAY * 30);
     let day_step_size = date_to_chart(null_time + Duration::DAY);
