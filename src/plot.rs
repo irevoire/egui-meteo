@@ -213,11 +213,11 @@ pub fn create_plot_time(name: &str, formatter: impl Fn(f64) -> String + 'static)
         let format = if days > 364 {
             format_description!("[year]")
         } else if days > 29 {
-            format_description!("[month]/[year]")
+            format_description!("[year]/[month]")
         } else if days > 0 {
-            format_description!("[day]/[month]/[year]")
+            format_description!("[year]/[month]/[day]")
         } else {
-            format_description!("[day]/[month]/[year] - [hour]:[minute]")
+            format_description!("[year]/[month]/[day] - [hour]:[minute]")
         };
         date_from_chart(mark.value).unwrap().format(format).unwrap()
     };
@@ -226,7 +226,7 @@ pub fn create_plot_time(name: &str, formatter: impl Fn(f64) -> String + 'static)
         let date = date_from_chart(point.x)
             .map(|date| {
                 date.format(format_description!(
-                    "[day]/[month]/[year] - [hour]:[minute]"
+                    "[year]/[month]/[day] - [hour]:[minute]"
                 ))
                 .unwrap()
             })
