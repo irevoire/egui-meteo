@@ -5,6 +5,7 @@ use time::{macros::format_description, Date, Duration, Month, OffsetDateTime, Ti
 
 use crate::{date_from_chart, date_to_chart};
 
+#[allow(clippy::collapsible_if)]
 fn x_grid(input: GridInput) -> Vec<GridMark> {
     let min_time = OffsetDateTime::from_unix_timestamp(-377705116800).unwrap();
     let null_time = OffsetDateTime::from_unix_timestamp(0).unwrap();
@@ -49,6 +50,16 @@ fn x_grid(input: GridInput) -> Vec<GridMark> {
             Date::from_ordinal_date(year, 1).unwrap(),
             Time::from_hms(0, 0, 0).unwrap(),
         );
+        // Early exit if there is too many years to display
+        if duration.whole_days() > 365 * 20 {
+            if (start..end).contains(&date) && year % 10 == 0 {
+                marks.push(GridMark {
+                    value: date_to_chart(date),
+                    step_size: year_step_size * 10.0,
+                });
+            }
+            continue;
+        }
         // Early exit if there is too many months to display
         if duration.whole_days() > 365 * 3 {
             if (start..end).contains(&date) {
@@ -97,7 +108,39 @@ fn x_grid(input: GridInput) -> Vec<GridMark> {
                     Ok(date) => date,
                     Err(_) => continue,
                 };
-                if duration.whole_hours() > 48 {
+                if duration.whole_days() > 90 {
+                    if (start..end).contains(&date) && day % 24 == 0 {
+                        marks.push(GridMark {
+                            value: date_to_chart(date),
+                            step_size: day_step_size * 24.0,
+                        });
+                    }
+                }
+                if duration.whole_days() > 60 {
+                    if (start..end).contains(&date) && day % 12 == 0 {
+                        marks.push(GridMark {
+                            value: date_to_chart(date),
+                            step_size: day_step_size * 12.0,
+                        });
+                    }
+                }
+                if duration.whole_days() > 30 {
+                    if (start..end).contains(&date) && day % 6 == 0 {
+                        marks.push(GridMark {
+                            value: date_to_chart(date),
+                            step_size: day_step_size * 6.0,
+                        });
+                    }
+                }
+                if duration.whole_days() > 15 {
+                    if (start..end).contains(&date) && day % 3 == 0 {
+                        marks.push(GridMark {
+                            value: date_to_chart(date),
+                            step_size: day_step_size * 3.0,
+                        });
+                    }
+                }
+                if duration.whole_days() > 2 {
                     if (start..end).contains(&date) {
                         marks.push(GridMark {
                             value: date_to_chart(date),
@@ -119,7 +162,23 @@ fn x_grid(input: GridInput) -> Vec<GridMark> {
 
                 for hour in s..=e {
                     let date = date.replace_hour(hour).unwrap();
-                    if duration.whole_minutes() > 120 {
+                    if duration.whole_hours() > 25 {
+                        if (start..end).contains(&date) && hour % 6 == 0 {
+                            marks.push(GridMark {
+                                value: date_to_chart(date),
+                                step_size: hour_step_size * 6.0,
+                            });
+                        }
+                    }
+                    if duration.whole_hours() > 15 {
+                        if (start..end).contains(&date) && hour % 3 == 0 {
+                            marks.push(GridMark {
+                                value: date_to_chart(date),
+                                step_size: hour_step_size * 3.0,
+                            });
+                        }
+                    }
+                    if duration.whole_hours() > 2 {
                         if (start..end).contains(&date) {
                             marks.push(GridMark {
                                 value: date_to_chart(date),
