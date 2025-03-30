@@ -88,7 +88,7 @@ impl DisplayReport {
 
     pub fn temperature(&mut self, report: &Report, ui: &mut Ui) {
         let report = &report.report;
-        let plot = create_plot_time("Temperature", |degree| format!("{degree:.2}°C"))
+        let plot = create_plot_time("Temperature", report, |degree| format!("{degree:.2}°C"))
             .link_axis(ui.id(), [true, false])
             .custom_y_axes(vec![AxisHints::new_y().label("Temperature en °C")]);
         plot.show(ui, |ui| {
@@ -126,17 +126,17 @@ impl DisplayReport {
 
             // display all data
             ui.line(
-                Line::new(low_temp)
+                Line::new("temperature minimale", low_temp)
                     .color(Color32::LIGHT_BLUE)
                     .name("temperature minimale"),
             );
             ui.line(
-                Line::new(mean_temp)
+                Line::new("temperature moyenne", mean_temp)
                     .color(Color32::GREEN)
                     .name("temperature moyenne"),
             );
             ui.line(
-                Line::new(high_temp)
+                Line::new("temperature maximale", high_temp)
                     .color(Color32::RED)
                     .name("temperature maximale"),
             );
@@ -145,7 +145,7 @@ impl DisplayReport {
 
     pub fn rain(&mut self, report: &Report, ui: &mut Ui) {
         let report = &report.report;
-        let plot = create_plot_time("Pluie", |rain| format!("{rain:.2}mm"))
+        let plot = create_plot_time("Pluie", report, |rain| format!("{rain:.2}mm"))
             .link_axis(ui.id(), [true, false])
             .custom_y_axes(vec![AxisHints::new_y().label("Pluie en mm/m²")]);
         plot.show(ui, |ui| {
@@ -162,13 +162,17 @@ impl DisplayReport {
                 .collect();
 
             // display all data
-            ui.line(Line::new(rain).color(Color32::LIGHT_BLUE).name("pluie"));
+            ui.line(
+                Line::new("pluie", rain)
+                    .color(Color32::LIGHT_BLUE)
+                    .name("pluie"),
+            );
         });
     }
 
     pub fn wind(&mut self, report: &Report, ui: &mut Ui) {
         let report = &report.report;
-        let plot = create_plot_time("Vent", |wind| format!("{wind:.2}km/h"))
+        let plot = create_plot_time("Vent", report, |wind| format!("{wind:.2}km/h"))
             .link_axis(ui.id(), [true, false])
             .custom_y_axes(vec![AxisHints::new_y().label("Vent en km/h")]);
         plot.show(ui, |ui| {
@@ -199,12 +203,12 @@ impl DisplayReport {
 
             // display all data
             ui.line(
-                Line::new(mean_wind)
+                Line::new("vent moyen", mean_wind)
                     .color(Color32::GREEN)
                     .name("vent moyen"),
             );
             ui.line(
-                Line::new(high_wind)
+                Line::new("vent maximal", high_wind)
                     .color(Color32::RED)
                     .name("vent maximal"),
             );

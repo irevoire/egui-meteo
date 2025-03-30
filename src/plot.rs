@@ -1,6 +1,7 @@
 use std::{ops::RangeInclusive, sync::Arc};
 
 use egui_plot::{AxisHints, CoordinatesFormatter, GridInput, GridMark, Legend, Plot, PlotPoint};
+use meteo::Report;
 use time::{macros::format_description, Date, Duration, Month, OffsetDateTime, Time};
 
 use crate::{date_from_chart, date_to_chart};
@@ -205,7 +206,11 @@ fn x_grid(input: GridInput) -> Vec<GridMark> {
     marks
 }
 
-pub fn create_plot_time(name: &str, formatter: impl Fn(f64) -> String + 'static) -> Plot {
+pub fn create_plot_time<'a>(
+    name: &'a str,
+    report: &Report,
+    formatter: impl Fn(f64) -> String + 'static,
+) -> Plot<'a> {
     let time_formatter = |mark: GridMark, _range: &RangeInclusive<f64>| {
         let step = date_from_chart(mark.step_size).unwrap();
         let step = step - OffsetDateTime::from_unix_timestamp(0).unwrap();
@@ -236,8 +241,20 @@ pub fn create_plot_time(name: &str, formatter: impl Fn(f64) -> String + 'static)
 
     let fmt = format_plot_point.clone();
 
+    let mut start = report
+        .first_date()
+        .with_time(Time::from_hms(0, 0, 0).unwrap())
+        .assume_utc();
+    let end = report
+        .last_date()
+        .with_time(Time::from_hms(23, 59, 59).unwrap())
+        .assume_utc();
+    if (end - start).whole_days() > 60 {
+        start = end - Duration::DAY * 60;
+    }
     Plot::new(name)
         .legend(Legend::default())
+        .default_x_bounds(date_to_chart(start), date_to_chart(end))
         .coordinates_formatter(
             egui_plot::Corner::LeftBottom,
             CoordinatesFormatter::new(move |point, _| fmt(point)),
