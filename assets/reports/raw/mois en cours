@@ -9,8 +9,8 @@ ELEV:   245 m  LAT:  43° 59' 23" N  LONG:   3° 36' 04" E
     MEAN                              DEG   DEG         WIND                 DOM
 DAY TEMP  HIGH   TIME   LOW    TIME   DAYS  DAYS  RAIN  SPEED HIGH   TIME    DIR
 ------------------------------------------------------------------------------------
- 1  18.7  18.8    0:30  18.6    0:30   0.0   0.0   1.4   0.0   6.4    0:30    NW
- 2
+ 1  19.8  25.1   14:30  15.4    8:30   0.6   2.2  16.8   2.6  30.6   16:30     S
+ 2  16.9  17.5    0:30  16.9    0:30   0.0   0.0   0.0   1.6   8.0    0:30    NW
  3
  4
  5
@@ -40,12 +40,12 @@ DAY TEMP  HIGH   TIME   LOW    TIME   DAYS  DAYS  RAIN  SPEED HIGH   TIME    DIR
 29
 30
 -------------------------------------------------------------------------------------
-    18.7  18.8     1    18.6     1     0.0   0.0   1.4   0.0   6.4     1      NW
+    18.4  25.1     1    15.4     1     0.7   2.2  16.8   2.1  30.6     1       S
 
 Max >=  32.0:  0
 Max <=   0.0:  0
 Min <=   0.0:  0
 Min <= -18.0:  0
-Max Rain: 1.40 ON 01/09/25
-Days of Rain: 1 (> .2 mm) 0 (> 2 mm) 0 (> 20 mm)
+Max Rain: 16.79 ON 01/09/25
+Days of Rain: 1 (> .2 mm) 1 (> 2 mm) 0 (> 20 mm)
 Heat Base:  18.3  Cool Base:  18.3  Method: Integration
