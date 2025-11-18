@@ -1,4 +1,4 @@
-name: Update the reports with the latest datas
+name: Update the reports with the latest data
 
 on:
   workflow_dispatch:
