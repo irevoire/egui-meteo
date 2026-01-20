@@ -27,7 +27,7 @@ serde = { version = "1", features = ["derive"] }
 meteo = { git = "https://github.com/irevoire/meteo" }
 # egui_plot = "0.31.0"
 egui_plot = { git = "https://github.com/irevoire/egui_plot", branch = "configure-starting-view" }
-time = { version = "0.3.41", features = ["formatting", "macros"] }
+time = { version = "0.3.41", features = ["formatting", "macros", "wasm-bindgen"] }
 include_dir = "0.7.4"
 
 # native:
